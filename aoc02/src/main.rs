@@ -21,15 +21,23 @@ fn parse_input<T: AsRef<str>>(input: T) -> Vec<Vec<usize>> {
         .collect()
 }
 
-fn is_safe(row: &[usize]) -> bool {
-    let flag = row[0].cmp(&row[1]);
-    if flag == std::cmp::Ordering::Equal {
-        return false;
-    }
-    for (i, j) in row.iter().zip(row.iter().skip(1)) {
-        if i.abs_diff(*j) <= 3 && i.cmp(j) == flag {
+fn is_safe(row: &[usize], skip: usize) -> bool {
+    let mut ordering = std::cmp::Ordering::Equal;
+    for i in 0..row.len() - 1 {
+        let (a, b) = if i == skip {
             continue;
+        } else if i + 1 == skip {
+            if i + 2 < row.len() {
+                (row[i], row[i + 2])
+            } else {
+                continue;
+            }
         } else {
+            (row[i], row[i + 1])
+        };
+        let o = a.cmp(&b);
+        ordering = ordering.then(o);
+        if !(ordering == o && (1..=3).contains(&a.abs_diff(b))) {
             return false;
         }
     }
@@ -41,7 +49,7 @@ fn part1(data: &[Vec<usize>]) -> Result<usize> {
 
     let mut result = 0;
     for row in data {
-        if is_safe(row) {
+        if is_safe(row, row.len()) {
             result += 1;
         }
     }
@@ -55,14 +63,12 @@ fn part2(data: &[Vec<usize>]) -> Result<usize> {
 
     let mut result = 0;
     for row in data {
-        if is_safe(row) {
+        if is_safe(row, row.len()) {
             result += 1;
             continue;
         }
         for index in 0..row.len() {
-            let mut row = row.clone();
-            row.remove(index);
-            if is_safe(&row) {
+            if is_safe(row, index) {
                 result += 1;
                 break;
             }
