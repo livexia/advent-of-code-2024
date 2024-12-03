@@ -51,7 +51,8 @@ impl Instruction {
 
 fn parse_input<T: AsRef<str>>(input: T) -> Result<Vec<Instruction>> {
     let mut instrs = vec![];
-    let re = Regex::new(r"(mul\(\d+\s*,\d+\))|(do\(\))|(don't\(\))").unwrap();
+    // let re = Regex::new(r"(mul\(\d+\s*,\d+\))|(do\(\))|(don't\(\))").unwrap();
+    let re = Regex::new(r"(mul\(\d+\s*,\d+\)|do(?:n't)?\(\))").unwrap();
     for (_, [instr_raw]) in re.captures_iter(input.as_ref()).map(|c| c.extract()) {
         instrs.push(instr_raw.parse()?);
     }
