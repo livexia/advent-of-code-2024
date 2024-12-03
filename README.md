@@ -3,6 +3,17 @@
 - https://adventofcode.com/
 - https://github.com/livexia/advent-of-code-2024
 
+## 移除所有的 input.txt
+
+根据社区和作者的规定，其实参与者并不允许上传 input 到公共仓库，我之前一直没有意识到这个问题，所以为了可确定性所以一直上传输入，今天意识到这个问题，所以删除了所有的输入，也许还有少量残留（不太可能）。
+
+使用的方法来自社区：
+1. [Puzzle Inputs](https://old.reddit.com/r/adventofcode/wiki/faqs/copyright/inputs)
+2. > git filter-repo --path-glob "2022/*/input" --invert-paths --force was the nice way to fix this for me. Edit the glob to match how you had inputs saved
+    - 需要重新配置仓库远端地址，同时需要强制推送代码，以及 github 可能存在短暂的更新延时，以及可能的云端缓存，不是很确定。
+    - [fragger](https://old.reddit.com/r/adventofcode/comments/18ehed6/re_not_sharing_inputs_psa_deleting_and_committing/kcroxma/)
+3. [newren/git-filter-repo](https://github.com/newren/git-filter-repo)
+
 ## Day 1
 
 太久没编程，还好大部分的记忆还在，有一点点手生，但是没什么问题。
