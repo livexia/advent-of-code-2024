@@ -10,7 +10,7 @@
 使用的方法来自社区：
 1. [Puzzle Inputs](https://old.reddit.com/r/adventofcode/wiki/faqs/copyright/inputs)
 2. > git filter-repo --path-glob "2022/*/input" --invert-paths --force was the nice way to fix this for me. Edit the glob to match how you had inputs saved
-    - 需要重新配置仓库远端地址，同时需要强制推送代码，以及 github 可能存在短暂的更新延时，以及可能的云端缓存，不是很确定。
+    - 需要重新配置仓库远端地址，同时需要强制推送代码，以及 github 可能存在短暂的更新延时，以及可能的云端缓存，不是很确定，以及会丢失本地的 input 文件，也算是我的教训吧，下次记得要检查类似的问题。
     - [fragger](https://old.reddit.com/r/adventofcode/comments/18ehed6/re_not_sharing_inputs_psa_deleting_and_committing/kcroxma/)
 3. [newren/git-filter-repo](https://github.com/newren/git-filter-repo)
 
