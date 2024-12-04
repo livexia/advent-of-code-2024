@@ -20,14 +20,14 @@ fn parse_input<T: AsRef<str>>(input: T) -> Grid {
         .collect()
 }
 
-fn search(grid: &Grid, i: usize, j: usize, pattern: &str) -> usize {
-    let mut pattern: Vec<_> = pattern.chars().collect();
-    if grid[i][j] == pattern[pattern.len() - 1] {
-        pattern.reverse();
-    }
-    if grid[i][j] != pattern[0] {
+fn search_part1(grid: &Grid, i: usize, j: usize) -> usize {
+    let pattern = if grid[i][j] == 'X' {
+        ['X', 'M', 'A', 'S']
+    } else if grid[i][j] == 'S' {
+        ['S', 'A', 'M', 'X']
+    } else {
         return 0;
-    }
+    };
     let l = pattern.len();
     let w = grid[0].len();
     let h = grid.len();
@@ -52,7 +52,9 @@ fn part1(grid: &Grid) -> Result<usize> {
     let mut result = 0;
     for i in 0..height {
         for j in 0..width {
-            result += search(grid, i, j, "XMAS");
+            if grid[i][j] == 'X' || grid[i][j] == 'S' {
+                result += search_part1(grid, i, j);
+            }
         }
     }
 
@@ -63,12 +65,12 @@ fn part1(grid: &Grid) -> Result<usize> {
 }
 
 fn search_part2(grid: &Grid, i: usize, j: usize) -> usize {
-    if grid[i][j] != 'A' {
-        return 0;
-    }
-    if i == 0 || j == 0 || i == grid.len() - 1 || j == grid[0].len() - 1 {
-        return 0;
-    }
+    // if grid[i][j] != 'A' {
+    //     return 0;
+    // }
+    // if i == 0 || j == 0 || i == grid.len() - 1 || j == grid[0].len() - 1 {
+    //     return 0;
+    // }
     let w1 = [grid[i - 1][j - 1], grid[i][j], grid[i + 1][j + 1]];
     let w2 = [grid[i - 1][j + 1], grid[i][j], grid[i + 1][j - 1]];
     [w1, w2]
@@ -83,9 +85,11 @@ fn part2(grid: &Grid) -> Result<usize> {
     let height = grid.len();
 
     let mut result = 0;
-    for i in 0..height {
-        for j in 0..width {
-            result += search_part2(grid, i, j);
+    for i in 1..height - 1 {
+        for j in 1..width - 1 {
+            if grid[i][j] == 'A' {
+                result += search_part2(grid, i, j);
+            }
         }
     }
 
