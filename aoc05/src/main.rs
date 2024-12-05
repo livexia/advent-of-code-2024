@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
+use std::usize;
 
 #[allow(unused_macros)]
 macro_rules! err {
@@ -10,10 +11,10 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-type OrderingRule = (usize, usize);
+type OrderingRules = HashMap<usize, HashSet<usize>>;
 type Update = Vec<usize>;
 
-fn parse_input<T: AsRef<str>>(input: T) -> (Vec<OrderingRule>, Vec<Update>) {
+fn parse_input<T: AsRef<str>>(input: T) -> (OrderingRules, Vec<Update>) {
     let mut rules = vec![];
     let mut updates = vec![];
     for line in input.as_ref().lines() {
@@ -33,61 +34,58 @@ fn parse_input<T: AsRef<str>>(input: T) -> (Vec<OrderingRule>, Vec<Update>) {
             continue;
         }
     }
-    (rules, updates)
+    let mut rules_map: HashMap<usize, HashSet<usize>> = HashMap::new();
+    for (a, b) in rules {
+        rules_map.entry(a).or_default().insert(b);
+    }
+    (rules_map, updates)
 }
 
-fn build_ordering(
-    rules: &[OrderingRule],
-    include: &HashSet<usize>,
-) -> HashMap<usize, HashSet<usize>> {
-    let mut rules_map: HashMap<usize, Vec<usize>> = HashMap::new();
-    for &(a, b) in rules {
-        rules_map.entry(a).or_default().push(b);
-    }
-    let mut map = HashMap::new();
+fn build_ordering_rules(rules: &OrderingRules, update: &Update) -> OrderingRules {
+    let mut ordering_rules = OrderingRules::new();
 
-    for &key in rules_map.keys() {
-        if !include.contains(&key) {
-            continue;
-        }
-        let e = map.entry(key).or_default();
-
-        find_next(&rules_map, include, key, e);
+    for &cur in update {
+        let e = ordering_rules.entry(cur).or_default();
+        find_after(rules, update, cur, e)
     }
 
-    fn find_next(
-        rules_map: &HashMap<usize, Vec<usize>>,
-        _include: &HashSet<usize>,
+    fn find_after(
+        rules: &OrderingRules,
+        update: &Update,
         cur: usize,
-        after: &mut HashSet<usize>,
+        all_after: &mut HashSet<usize>,
     ) {
-        if let Some(ns) = rules_map.get(&cur) {
-            for &n in ns {
-                if !after.contains(&n) && _include.contains(&n) {
-                    after.insert(n);
-                    find_next(rules_map, _include, n, after);
+        if let Some(after) = rules.get(&cur) {
+            for &next in after.iter().filter(|n| update.contains(n)) {
+                if all_after.insert(next) {
+                    find_after(rules, update, next, all_after);
                 }
             }
         }
     }
 
-    map
+    ordering_rules
 }
 
-fn part1(rules: &[OrderingRule], updates: &[Update]) -> Result<usize> {
+fn find(rules: &OrderingRules, cur: usize, target: usize) -> bool {
+    if let Some(after) = rules.get(&cur) {
+        return after.contains(&target);
+    }
+    false
+}
+
+fn part1(rules: &OrderingRules, updates: &[Update]) -> Result<usize> {
     let _start = Instant::now();
 
     let mut result = updates.iter().map(|u| u[u.len() / 2]).sum();
 
     for update in updates {
-        let map = build_ordering(rules, &update.iter().cloned().collect());
+        let ordering_rules = build_ordering_rules(rules, update);
         for w in update.windows(2) {
             let (a, b) = (w[0], w[1]);
-            if let Some(after) = map.get(&b) {
-                if after.contains(&a) {
-                    result -= update[update.len() / 2];
-                    break;
-                }
+            if find(&ordering_rules, b, a) {
+                result -= update[update.len() / 2];
+                break;
             }
         }
     }
@@ -97,29 +95,26 @@ fn part1(rules: &[OrderingRule], updates: &[Update]) -> Result<usize> {
     Ok(result)
 }
 
-fn part2(rules: &[OrderingRule], updates: &[Update]) -> Result<usize> {
+fn part2(rules: &OrderingRules, updates: &[Update]) -> Result<usize> {
     let _start = Instant::now();
 
     let mut result = 0;
 
     for update in updates {
         let mut update = update.clone();
-        let allowed: HashSet<usize> = update.iter().cloned().collect();
-        let map = build_ordering(rules, &allowed);
+        let ordering_rules = build_ordering_rules(rules, &update);
         let (mut cur, mut next) = (0, 1);
         let mut swaped = false;
         while next < update.len() {
             let (a, b) = (update[cur], update[next]);
-            if let Some(after) = map.get(&b) {
-                if after.contains(&a) {
-                    update.swap(cur, next);
-                    swaped = true;
-                    if cur != 0 {
-                        cur -= 1;
-                        next -= 1;
-                    }
-                    continue;
+            if find(&ordering_rules, b, a) {
+                update.swap(cur, next);
+                swaped = true;
+                if cur != 0 {
+                    cur -= 1;
+                    next -= 1;
                 }
+                continue;
             }
             cur += 1;
             next += 1;
