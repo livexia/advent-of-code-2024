@@ -12,7 +12,7 @@ type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
 type Grid = Vec<Vec<char>>;
 type Coord = (isize, isize);
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
     Up,
     Down,
@@ -32,7 +32,7 @@ impl Direction {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Guard {
     facing: Direction,
     coord: Coord,
@@ -68,12 +68,16 @@ impl Guard {
                 true
             }
             Some('#') => {
-                self.facing = self.facing.turn();
+                self.turn();
                 self.patrol(grid)
             }
             None => false,
             _ => unreachable!("There is something wrong with grid at {next_pos:?}"),
         }
+    }
+
+    fn turn(&mut self) {
+        self.facing = self.facing.turn();
     }
 }
 
@@ -104,7 +108,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<(Grid, Guard)> {
 }
 
 fn patrol_route(grid: &Grid, guard: &Guard) -> HashSet<Coord> {
-    let mut guard = guard.clone();
+    let mut guard = *guard;
     let mut route = HashSet::new();
     route.insert(guard.coord);
 
@@ -124,31 +128,67 @@ fn part1(grid: &Grid, guard: &Guard) -> Result<usize> {
     Ok(result)
 }
 
-fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
+#[allow(dead_code)]
+fn part2_bruteforce_trim(grid: &Grid, guard: &Guard) -> Result<usize> {
     let _start = Instant::now();
 
-    let patrol_route = patrol_route(grid, guard);
+    let mut grid = grid.clone();
 
     let mut result = 0;
-    let mut grid = grid.clone();
-    for (i, j) in patrol_route {
-        let (i, j) = (i as usize, j as usize);
-        if grid[i][j] == '.' {
-            grid[i][j] = '#';
-
-            let mut guard = guard.clone();
-            let mut visited: HashSet<Guard> = HashSet::new();
-            visited.insert(guard.clone());
+    for (x, y) in patrol_route(&grid, guard) {
+        if grid_at(&grid, (x, y)) == Some('.') {
+            let mut visited = HashSet::new();
+            let mut guard = *guard;
+            visited.insert(guard);
+            grid[x as usize][y as usize] = '#';
             while guard.patrol(&grid) {
-                if !visited.insert(guard.clone()) {
+                if !visited.insert(guard) {
                     result += 1;
                     break;
                 }
             }
-
-            grid[i][j] = '.';
+            grid[x as usize][y as usize] = '.';
         }
     }
+
+    println!("part2 with bruteforce an trim: {result}");
+    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    Ok(result)
+}
+
+fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut cyclic = HashSet::new();
+
+    let mut grid = grid.clone();
+
+    let mut guard = *guard;
+    let mut alt_guard = guard;
+    let mut old_guard = guard;
+    let mut visited: HashSet<Guard> = HashSet::new();
+    let mut checked = HashSet::new();
+    while guard.patrol(&grid) {
+        if checked.insert(guard.coord) && grid_at(&grid, guard.coord) == Some('.') {
+            let (x, y) = (guard.coord.0 as usize, guard.coord.1 as usize);
+            grid[x][y] = '#';
+            let mut visited = visited.clone();
+            visited.insert(alt_guard);
+            while alt_guard.patrol(&grid) {
+                if !visited.insert(alt_guard) {
+                    cyclic.insert(guard.coord);
+                    break;
+                }
+            }
+            grid[x][y] = '.';
+        }
+
+        visited.insert(old_guard);
+        old_guard = guard;
+        alt_guard = guard;
+    }
+
+    let result = cyclic.len();
     println!("part2: {result}");
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
@@ -161,6 +201,7 @@ fn main() -> Result<()> {
     let (grid, guard) = parse_input(input)?;
     part1(&grid, &guard)?;
     part2(&grid, &guard)?;
+    // part2_bruteforce_trim(&grid, &guard)?;
     Ok(())
 }
 
@@ -182,9 +223,23 @@ fn example_input() {
 }
 
 #[test]
+fn test_guard() {
+    let input = ".#.
+.^#
+...";
+    let (grid, mut guard) = parse_input(input).unwrap();
+    assert_eq!(guard.coord, (1, 1));
+    assert_eq!(guard.facing, Direction::Up);
+    guard.patrol(&grid);
+    assert_eq!(guard.facing, Direction::Down);
+    assert_eq!(guard.coord, (2, 1));
+}
+
+#[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let (grid, guard) = parse_input(input).unwrap();
     assert_eq!(part1(&grid, &guard).unwrap(), 5551);
+    // assert_eq!(part2_bruteforce_trim(&grid, &guard).unwrap(), 1939);
     assert_eq!(part2(&grid, &guard).unwrap(), 1939);
 }
