@@ -166,7 +166,7 @@ fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
     let mut guard = *guard;
     let mut alt_guard = guard;
     let mut old_guard = guard;
-    let mut visited: HashSet<Guard> = HashSet::new();
+    let mut visited: HashSet<Guard> = HashSet::with_capacity(grid.len() * grid[0].len());
     let mut checked = HashSet::new();
     while guard.patrol(&grid) {
         if checked.insert(guard.coord) && grid_at(&grid, guard.coord) == Some('.') {
