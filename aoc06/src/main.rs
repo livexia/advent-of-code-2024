@@ -11,7 +11,7 @@ macro_rules! err {
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
 type Grid = Vec<Vec<char>>;
-type Coord = (isize, isize);
+type Coord = (i32, i32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
     Up,
@@ -82,8 +82,7 @@ impl Guard {
 }
 
 fn grid_at(grid: &Grid, coord: Coord) -> Option<char> {
-    if (0..grid.len() as isize).contains(&coord.0) && (0..grid[0].len() as isize).contains(&coord.1)
-    {
+    if (0..grid.len() as i32).contains(&coord.0) && (0..grid[0].len() as i32).contains(&coord.1) {
         Some(grid[coord.0 as usize][coord.1 as usize])
     } else {
         None
@@ -100,7 +99,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<(Grid, Guard)> {
         for j in 0..grid[0].len() {
             if grid[i][j] != '.' && grid[i][j] != '#' {
                 let f = grid[i][j];
-                return Ok((grid, Guard::new(f, (i as isize, j as isize))?));
+                return Ok((grid, Guard::new(f, (i as i32, j as i32))?));
             }
         }
     }
@@ -159,7 +158,7 @@ fn part2_bruteforce_trim(grid: &Grid, guard: &Guard) -> Result<usize> {
 fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
     let _start = Instant::now();
 
-    let mut cyclic = HashSet::new();
+    let mut result = 0;
 
     let mut grid = grid.clone();
 
@@ -176,7 +175,7 @@ fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
             visited.insert(alt_guard);
             while alt_guard.patrol(&grid) {
                 if !visited.insert(alt_guard) {
-                    cyclic.insert(guard.coord);
+                    result += 1;
                     break;
                 }
             }
@@ -188,7 +187,6 @@ fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
         alt_guard = guard;
     }
 
-    let result = cyclic.len();
     println!("part2: {result}");
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
