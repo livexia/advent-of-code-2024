@@ -103,44 +103,50 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<(Grid, Guard)> {
     err!("Unable to parse input")
 }
 
-fn part1(grid: &Grid, mut guard: Guard) -> Result<usize> {
-    let _start = Instant::now();
-
-    let mut visited = HashSet::new();
-    visited.insert(guard.coord);
+fn patrol_route(grid: &Grid, guard: &Guard) -> HashSet<Coord> {
+    let mut guard = guard.clone();
+    let mut route = HashSet::new();
+    route.insert(guard.coord);
 
     while guard.patrol(grid) {
-        visited.insert(guard.coord);
+        route.insert(guard.coord);
     }
 
-    let result = visited.len();
+    route
+}
+
+fn part1(grid: &Grid, guard: &Guard) -> Result<usize> {
+    let _start = Instant::now();
+
+    let result = patrol_route(grid, guard).len();
     println!("part1: {result}");
     writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
     Ok(result)
 }
 
-fn part2(grid: &Grid, guard: Guard) -> Result<usize> {
+fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
     let _start = Instant::now();
+
+    let patrol_route = patrol_route(grid, guard);
 
     let mut result = 0;
     let mut grid = grid.clone();
-    for i in 0..grid.len() {
-        for j in 0..grid[0].len() {
-            if grid[i][j] == '.' {
-                grid[i][j] = '#';
+    for (i, j) in patrol_route {
+        let (i, j) = (i as usize, j as usize);
+        if grid[i][j] == '.' {
+            grid[i][j] = '#';
 
-                let mut guard = guard.clone();
-                let mut visited: HashSet<Guard> = HashSet::new();
-                visited.insert(guard.clone());
-                while guard.patrol(&grid) {
-                    if !visited.insert(guard.clone()) {
-                        result += 1;
-                        break;
-                    }
+            let mut guard = guard.clone();
+            let mut visited: HashSet<Guard> = HashSet::new();
+            visited.insert(guard.clone());
+            while guard.patrol(&grid) {
+                if !visited.insert(guard.clone()) {
+                    result += 1;
+                    break;
                 }
-
-                grid[i][j] = '.';
             }
+
+            grid[i][j] = '.';
         }
     }
     println!("part2: {result}");
@@ -152,9 +158,9 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let (grid, gurad) = parse_input(input)?;
-    part1(&grid, gurad.clone())?;
-    part2(&grid, gurad.clone())?;
+    let (grid, guard) = parse_input(input)?;
+    part1(&grid, &guard)?;
+    part2(&grid, &guard)?;
     Ok(())
 }
 
@@ -170,15 +176,15 @@ fn example_input() {
 ........#.
 #.........
 ......#...";
-    let (grid, gurad) = parse_input(input).unwrap();
-    assert_eq!(part1(&grid, gurad.clone()).unwrap(), 41);
-    assert_eq!(part2(&grid, gurad.clone()).unwrap(), 6);
+    let (grid, guard) = parse_input(input).unwrap();
+    assert_eq!(part1(&grid, &guard).unwrap(), 41);
+    assert_eq!(part2(&grid, &guard).unwrap(), 6);
 }
 
 #[test]
 fn real_input() {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let (grid, gurad) = parse_input(input).unwrap();
-    assert_eq!(part1(&grid, gurad.clone()).unwrap(), 5551);
-    assert_eq!(part2(&grid, gurad.clone()).unwrap(), 1939);
+    let (grid, guard) = parse_input(input).unwrap();
+    assert_eq!(part1(&grid, &guard).unwrap(), 5551);
+    assert_eq!(part2(&grid, &guard).unwrap(), 1939);
 }
