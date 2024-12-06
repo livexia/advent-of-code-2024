@@ -155,6 +155,18 @@ fn part2_bruteforce_trim(grid: &Grid, guard: &Guard) -> Result<usize> {
     Ok(result)
 }
 
+fn dfs_patrol_loop(grid: &Grid, mut guard: Guard, visited: &mut HashSet<Guard>) -> bool {
+    if guard.patrol(grid) {
+        !visited.insert(guard) || {
+            let r = dfs_patrol_loop(grid, guard, visited);
+            visited.remove(&guard);
+            r
+        }
+    } else {
+        false
+    }
+}
+
 fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
     let _start = Instant::now();
 
@@ -164,26 +176,25 @@ fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
 
     let mut guard = *guard;
     let mut alt_guard = guard;
-    let mut old_guard = guard;
     let mut visited: HashSet<Guard> = HashSet::with_capacity(grid.len() * grid[0].len());
     let mut checked = HashSet::new();
+    visited.insert(guard);
     while guard.patrol(&grid) {
         let (x, y) = (guard.coord.0 as usize, guard.coord.1 as usize);
         if checked.insert(guard.coord) && grid[x][y] == '.' {
             grid[x][y] = '#';
-            let mut visited = visited.clone();
-            visited.insert(alt_guard);
-            while alt_guard.patrol(&grid) {
-                if !visited.insert(alt_guard) {
-                    result += 1;
-                    break;
-                }
-            }
+            result += dfs_patrol_loop(&grid, alt_guard, &mut visited) as usize;
+            // let mut visited = visited.clone();
+            // while alt_guard.patrol(&grid) {
+            //     if !visited.insert(alt_guard) {
+            //         result += 1;
+            //         break;
+            //     }
+            // }
             grid[x][y] = '.';
         }
 
-        visited.insert(old_guard);
-        old_guard = guard;
+        visited.insert(guard);
         alt_guard = guard;
     }
 
