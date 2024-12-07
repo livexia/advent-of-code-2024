@@ -155,6 +155,7 @@ fn part2_bruteforce_trim(grid: &Grid, guard: &Guard) -> Result<usize> {
     Ok(result)
 }
 
+#[allow(dead_code)]
 fn dfs_patrol_loop(grid: &Grid, mut guard: Guard, visited: &mut HashSet<Guard>) -> bool {
     if guard.patrol(grid) {
         !visited.insert(guard) || {
@@ -183,14 +184,14 @@ fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
         let (x, y) = (guard.coord.0 as usize, guard.coord.1 as usize);
         if checked.insert(guard.coord) && grid[x][y] == '.' {
             grid[x][y] = '#';
-            result += dfs_patrol_loop(&grid, alt_guard, &mut visited) as usize;
-            // let mut visited = visited.clone();
-            // while alt_guard.patrol(&grid) {
-            //     if !visited.insert(alt_guard) {
-            //         result += 1;
-            //         break;
-            //     }
-            // }
+            // result += dfs_patrol_loop(&grid, alt_guard, &mut visited) as usize;
+            let mut visited = visited.clone();
+            while alt_guard.patrol(&grid) {
+                if !visited.insert(alt_guard) {
+                    result += 1;
+                    break;
+                }
+            }
             grid[x][y] = '.';
         }
 
