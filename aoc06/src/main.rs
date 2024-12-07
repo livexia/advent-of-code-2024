@@ -186,11 +186,13 @@ fn part2(grid: &Grid, guard: &Guard) -> Result<usize> {
             grid[x][y] = '#';
             // result += dfs_patrol_loop(&grid, alt_guard, &mut visited) as usize;
             let mut visited = visited.clone();
+            let mut last_facing = alt_guard.facing;
             while alt_guard.patrol(&grid) {
-                if !visited.insert(alt_guard) {
+                if alt_guard.facing != last_facing && !visited.insert(alt_guard) {
                     result += 1;
                     break;
                 }
+                last_facing = alt_guard.facing;
             }
             grid[x][y] = '.';
         }
