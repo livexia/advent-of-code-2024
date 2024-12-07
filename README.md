@@ -51,3 +51,7 @@
 在某一个位置，守卫最多存在四种前进方向，也就是说某一个位置最多存在四种状态，那么就可以用一个三维数组存储这些，直接利用数组替换哈希，测试发现数组比哈希更慢，这也可以理解，因为数组需要更大的空间，哈希其实还是只用了较少的空间。因为输入的大小为 130x130 理论上可以用大小为 `[[u64; 43]; 130]` 的 array 对应输入二维矩阵每个位置的状态，同样只需要四个这样的 array 对应守卫在每一个位置可能有的四种状态。通过位运算，可以将每个坐标对应到这个 array 中 u64 的一个 bit 上，这也是 AOC 中经常出现的优化。我在今天的题目上已经花了很多的时间，就随它去。
 
 参考了 Reddit 的[评论](https://www.reddit.com/r/adventofcode/comments/1h7vpqi/comment/m0pcrrh/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button) 和[帖子](https://www.reddit.com/r/adventofcode/comments/1h8g6za/2024_day_6_part_2_various_optimization_tricks/) 我意识到在环检测的时候，只需要保存在守卫发生转向时的状态即可，如果成环那么守卫一定会走过每个角落多次，这可以减少需要保存和检查的状态值。这个优化是显著的，在 debug 编译下，运行时间降低到了 300ms ，release 下则降低到了 70ms。
+
+## Day 7
+
+也许是最简单的一天，这让我担心明后天的题目了，没有什么特别的花样，老老实实的暴力递归解决，清晰明了，看社区貌似也没更好的方法。有一个 rust 的语法糖（？），可以用 `checked_ilog10` 确定一个数的十进制长度。
