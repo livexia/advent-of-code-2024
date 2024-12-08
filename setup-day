@@ -27,6 +27,10 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
+fn parse_input<T: AsRef<str>>(input: T) -> Result<()> {
+    todo!()
+}
+
 fn part1() -> Result<()> {
     let _start = Instant::now();
 
@@ -44,14 +48,16 @@ fn main() -> Result<()>{
 }
 
 #[test]
-fn example_input() {
+fn example_input() -> Result<()> {
     assert_eq!(1, 1);
+    Ok(())
 }
 
 #[test]
-fn real_input() {
+fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     assert_eq!(2, 2);
+    Ok(())
 }
 
 EOM
