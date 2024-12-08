@@ -17,7 +17,7 @@ touch "$name/input/input.txt"
 # write template to source file
 cat >"$name/src/main.rs" <<EOM
 use std::error::Error;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::time::Instant;
 
 #[allow(unused_macros)]
@@ -34,7 +34,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<()> {
 fn part1() -> Result<()> {
     let _start = Instant::now();
 
-    writeln!(io::stdout(), "> Time elapsed is: {:?}", _start.elapsed())?;
+    println!("> Time elapsed is: {:?}", _start.elapsed());
     todo!()
 }
 
