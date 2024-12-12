@@ -74,9 +74,6 @@ fn number_of_side(area: &HashSet<(isize, isize)>) -> usize {
             .into_iter()
             .filter(|&(dx, dy)| !area.contains(&(x + dx, y + dy)))
             .collect();
-        if next.is_empty() {
-            continue;
-        }
         for (dx, dy) in next {
             let line = (x * dx.abs(), dy * dy.abs());
             side.entry((line, (dx, dy)))
@@ -126,6 +123,69 @@ fn part2(map: &[Vec<char>]) -> Result<usize> {
     Ok(result)
 }
 
+fn next(x: isize, y: isize, north: isize, east: isize) -> (isize, isize) {
+    (x + north, y + east)
+}
+
+fn is_covex(x: isize, y: isize, north: isize, east: isize, area: &HashSet<(isize, isize)>) -> bool {
+    !area.contains(&next(x, y, north, 0)) && !area.contains(&next(x, y, 0, east))
+}
+
+fn is_concave(
+    x: isize,
+    y: isize,
+    north: isize,
+    east: isize,
+    area: &HashSet<(isize, isize)>,
+) -> bool {
+    !area.contains(&next(x, y, north, east))
+        && area.contains(&next(x, y, north, 0))
+        && area.contains(&next(x, y, 0, east))
+}
+
+fn number_of_corner(area: &HashSet<(isize, isize)>) -> usize {
+    let mut count = 0;
+    for &(x, y) in area {
+        let north = -1;
+        let east = 1;
+        let south = 1;
+        let west = -1;
+        // covex
+        count += is_covex(x, y, north, east, area) as usize
+            + is_covex(x, y, north, west, area) as usize
+            + is_covex(x, y, south, east, area) as usize
+            + is_covex(x, y, south, west, area) as usize;
+
+        // concave
+        count += is_concave(x, y, north, east, area) as usize
+            + is_concave(x, y, north, west, area) as usize
+            + is_concave(x, y, south, east, area) as usize
+            + is_concave(x, y, south, west, area) as usize;
+    }
+    count
+}
+
+fn part2_count_corner(map: &[Vec<char>]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut result = 0;
+    let mut visited: HashSet<(isize, isize)> = HashSet::new();
+    for i in 0..map.len() {
+        for j in 0..map[0].len() {
+            if !visited.contains(&(i as isize, j as isize)) {
+                let mut area = HashSet::new();
+                let _ = dfs(i, j, map, &mut area);
+                result += number_of_corner(&area) * area.len();
+                visited.extend(&area);
+            }
+        }
+    }
+
+    println!("part2 by count couner: {result}");
+    println!("> Time elapsed is: {:?}", _start.elapsed());
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -133,6 +193,7 @@ fn main() -> Result<()> {
     let map = parse_input(input)?;
     part1(&map)?;
     part2(&map)?;
+    part2_count_corner(&map)?;
     Ok(())
 }
 
@@ -145,6 +206,7 @@ EEEC";
     let map = parse_input(input)?;
     assert_eq!(part1(&map)?, 140);
     assert_eq!(part2(&map)?, 80);
+    assert_eq!(part2_count_corner(&map)?, 80);
     Ok(())
 }
 
@@ -158,6 +220,7 @@ OOOOO";
     let map = parse_input(input)?;
     assert_eq!(part1(&map)?, 772);
     assert_eq!(part2(&map)?, 436);
+    assert_eq!(part2_count_corner(&map)?, 436);
     Ok(())
 }
 
@@ -176,6 +239,7 @@ MMMISSJEEE";
     let map = parse_input(input)?;
     assert_eq!(part1(&map)?, 1930);
     assert_eq!(part2(&map)?, 1206);
+    assert_eq!(part2_count_corner(&map)?, 1206);
     Ok(())
 }
 
@@ -188,6 +252,40 @@ EXXXX
 EEEEE";
     let map = parse_input(input)?;
     assert_eq!(part2(&map)?, 236);
+    assert_eq!(part2_count_corner(&map)?, 236);
+    Ok(())
+}
+
+#[test]
+fn example_input4() -> Result<()> {
+    let input = "AAAA";
+    let map = parse_input(input)?;
+    assert_eq!(part2(&map)?, 16);
+    assert_eq!(part2_count_corner(&map)?, 16);
+    Ok(())
+}
+
+#[test]
+fn example_input5() -> Result<()> {
+    let input = "A
+A
+A
+A";
+    let map = parse_input(input)?;
+    assert_eq!(part2(&map)?, 16);
+    assert_eq!(part2_count_corner(&map)?, 16);
+    Ok(())
+}
+#[test]
+fn example_input6() -> Result<()> {
+    let input = "OOO
+OXO
+OOO
+OXO
+OOO";
+    let map = parse_input(input)?;
+    assert_eq!(part2(&map)?, 164);
+    assert_eq!(part2_count_corner(&map)?, 164);
     Ok(())
 }
 
@@ -197,5 +295,6 @@ fn real_input() -> Result<()> {
     let map = parse_input(input)?;
     assert_eq!(part1(&map)?, 1494342);
     assert_eq!(part2(&map)?, 893676);
+    assert_eq!(part2_count_corner(&map)?, 893676);
     Ok(())
 }
