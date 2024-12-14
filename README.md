@@ -136,6 +136,7 @@ Reddit 上除了我这样的方法还有其他一些方法，都各有创意，�
 1. [将输出存为 PNG 格式，然后检查文件大小较小的输出，因为有规律的图片压缩更加优秀](https://www.reddit.com/r/adventofcode/comments/1hdvhvu/comment/m1z79gn)
 2. [计算连接机器人的数量，当数量超过一个人为给定的阈值之后，可能就是正解](https://www.reddit.com/r/adventofcode/comments/1hdvhvu/comment/m1z7j2t)
 3. [检查位置重叠机器人的数量，当没有机器人重叠的时候，即为正解](https://www.reddit.com/r/adventofcode/comments/1hdvhvu/comment/m1z9by8)
-4. 也许可以检查四个象限接触部分机器人的数量，因为最后结果圣诞树大致处于图片中间的位置。
+4. [我的第一思路，计算大部分集中在行和列的频率，计算相交也是可行的](https://www.reddit.com/r/adventofcode/comments/1hdwqgy/2024_day_14_part_2_the_rsi_solution)
+5. 也许可以检查四个象限接触部分机器人的数量，因为最后结果圣诞树大致处于图片中间的位置。
 
 参考：[rem_euclid](https://doc.rust-lang.org/std/primitive.isize.html#method.rem_euclid)
