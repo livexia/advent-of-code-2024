@@ -82,44 +82,24 @@ impl Move {
         }
     }
 
-    fn try_push(&self, coord: Coord, map: &[Vec<char>], possible_boxs: &mut Vec<Coord>) -> bool {
+    fn try_push(&self, coord: Coord, map: &[Vec<char>], possible_boxes: &mut Vec<Coord>) -> bool {
         // only conside left side of a box
         let coord = find_box(coord, map);
         let next = self.next_coord(coord);
-        let mut push_able = false;
-        match self {
+
+        let push_able = match self {
             Move::Up | Move::Down => {
                 let (x, y) = (next.0 as usize, next.1 as usize);
-                if map[x][y] == '.' && map[x][y + 1] == '.' {
-                    push_able = true
-                } else if map[x][y] == '#' || map[x][y + 1] == '#' {
-                    push_able = false
-                } else {
-                    match (map[x][y], map[x][y + 1]) {
-                        ('[', ']') => {
-                            if self.try_push(next, map, possible_boxs) {
-                                push_able = true
-                            }
-                        }
-                        (']', '[') => {
-                            if self.try_push(next, map, possible_boxs)
-                                && self.try_push((next.0, next.1 + 1), map, possible_boxs)
-                            {
-                                push_able = true
-                            }
-                        }
-                        ('.', '[') => {
-                            if self.try_push((next.0, next.1 + 1), map, possible_boxs) {
-                                push_able = true
-                            }
-                        }
-                        (']', '.') => {
-                            if self.try_push(next, map, possible_boxs) {
-                                push_able = true
-                            }
-                        }
-                        _ => unreachable!("impossible pattern {:?} {:?}", map[x][y], map[x][y + 1]),
+                match (map[x][y], map[x][y + 1]) {
+                    ('.', '.') => true,
+                    ('#', _) | (_, '#') => false,
+                    ('[', ']') | (']', '.') => self.try_push(next, map, possible_boxes),
+                    (']', '[') => {
+                        self.try_push(next, map, possible_boxes)
+                            && self.try_push((next.0, next.1 + 1), map, possible_boxes)
                     }
+                    ('.', '[') => self.try_push((next.0, next.1 + 1), map, possible_boxes),
+                    _ => unreachable!("impossible pattern {:?} {:?}", map[x][y], map[x][y + 1]),
                 }
             }
             Move::Left | Move::Right => {
@@ -129,18 +109,31 @@ impl Move {
                     self.next_coord(next)
                 };
                 match map[possible.0 as usize][possible.1 as usize] {
-                    '.' => push_able = true,
-                    '@' => push_able = false,
-                    '#' => push_able = false,
-                    '[' | ']' => push_able = self.try_push(possible, map, possible_boxs),
+                    '.' => true,
+                    '@' | '#' => false,
+                    '[' | ']' => self.try_push(possible, map, possible_boxes),
                     _ => unreachable!("unknow char at {:?} for map", possible),
                 }
             }
-        }
+        };
         if push_able {
-            possible_boxs.push(coord);
+            possible_boxes.push(coord);
         }
         push_able
+    }
+
+    fn move_boxes_at_once(self, boxes: &[Coord], map: &mut [Vec<char>]) {
+        for &b in boxes {
+            let (x, y) = (b.0 as usize, b.1 as usize);
+            map[x][y] = '.';
+            map[x][y + 1] = '.';
+        }
+        for &b in boxes {
+            let b = self.next_coord(b);
+            let (x, y) = (b.0 as usize, b.1 as usize);
+            map[x][y] = '[';
+            map[x][y + 1] = ']';
+        }
     }
 
     fn move_robot_expanded_map(&self, robot: Coord, map: &mut [Vec<char>]) -> Option<Coord> {
@@ -157,21 +150,10 @@ impl Move {
                     map[x][y] = '.';
                     Some((nx as isize, ny as isize))
                 }
-                '#' => None,
                 '[' | ']' => {
-                    let mut boxs = vec![];
-                    if self.try_push(self.next_coord(robot), map, &mut boxs) {
-                        for &b in &boxs {
-                            let (x, y) = (b.0 as usize, b.1 as usize);
-                            map[x][y] = '.';
-                            map[x][y + 1] = '.';
-                        }
-                        for b in boxs {
-                            let b = self.next_coord(b);
-                            let (x, y) = (b.0 as usize, b.1 as usize);
-                            map[x][y] = '[';
-                            map[x][y + 1] = ']';
-                        }
+                    let mut boxes = vec![];
+                    if self.try_push(self.next_coord(robot), map, &mut boxes) {
+                        self.move_boxes_at_once(&boxes, map);
                         map[nx][ny] = '@';
                         map[x][y] = '.';
                         Some((nx as isize, ny as isize))
@@ -188,7 +170,7 @@ impl Move {
         &self,
         coord: Coord,
         map: &[Vec<char>],
-        possible_boxs: &mut Vec<Coord>,
+        possible_boxes: &mut Vec<Coord>,
         visited: &mut HashSet<Coord>,
     ) -> bool {
         if visited.insert(coord) {
@@ -208,10 +190,10 @@ impl Move {
                 };
                 if need_check
                     .into_iter()
-                    .all(|c| self.try_push_as_robot(c, map, possible_boxs, visited))
+                    .all(|c| self.try_push_as_robot(c, map, possible_boxes, visited))
                 {
                     if map[coord.0 as usize][coord.1 as usize] != '@' {
-                        possible_boxs.push(find_box(coord, map));
+                        possible_boxes.push(find_box(coord, map));
                     }
                     true
                 } else {
@@ -333,19 +315,9 @@ fn part2_box_as_robot(map: &[Vec<char>], moves: &[Move]) -> Result<usize> {
 
     // display_map(&map);
     for m in moves {
-        let mut boxs = vec![];
-        if m.try_push_as_robot(robot, &map, &mut boxs, &mut HashSet::new()) {
-            for &b in &boxs {
-                let (x, y) = (b.0 as usize, b.1 as usize);
-                map[x][y] = '.';
-                map[x][y + 1] = '.';
-            }
-            for b in boxs {
-                let b = m.next_coord(b);
-                let (x, y) = (b.0 as usize, b.1 as usize);
-                map[x][y] = '[';
-                map[x][y + 1] = ']';
-            }
+        let mut boxes = vec![];
+        if m.try_push_as_robot(robot, &map, &mut boxes, &mut HashSet::new()) {
+            m.move_boxes_at_once(&boxes, &mut map);
             map[robot.0 as usize][robot.1 as usize] = '.';
             robot = m.next_coord(robot);
             map[robot.0 as usize][robot.1 as usize] = '@';
