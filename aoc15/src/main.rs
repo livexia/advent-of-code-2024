@@ -67,33 +67,21 @@ impl Move {
         } else {
             let (x, y) = (coord.0 as usize, coord.1 as usize);
             let (nx, ny) = (nx as usize, ny as usize);
-            match map[nx][ny] {
-                '@' | '.' => {
-                    // found empty swap
-                    let t = map[nx][ny];
-                    map[nx][ny] = map[x][y];
-                    map[x][y] = t;
-                    Some((nx as isize, ny as isize))
-                }
-                '#' => None,
-                'O' => {
-                    if self.move_robot((nx as isize, ny as isize), map).is_some() {
-                        // box moved
-                        // update robot position
-                        let t = map[nx][ny];
-                        map[nx][ny] = map[x][y];
-                        map[x][y] = t;
-                        Some((nx as isize, ny as isize))
-                    } else {
-                        None
-                    }
-                }
-                _ => unreachable!("unknow char at {:?} for map", (nx, ny)),
+            if map[nx][ny] == '.'
+                || (map[nx][ny] == 'O' && self.move_robot(self.next_coord(coord), map).is_some())
+            {
+                let t = map[nx][ny];
+                map[nx][ny] = map[x][y];
+                map[x][y] = t;
+
+                Some((nx as isize, ny as isize))
+            } else {
+                None
             }
         }
     }
 
-    fn can_push(&self, coord: Coord, map: &[Vec<char>]) -> bool {
+    fn try_push(&self, coord: Coord, map: &[Vec<char>], possible_boxs: &mut Vec<Coord>) -> bool {
         // only conside left side of a box
         let coord = find_box(coord, map);
         let next = self.next_coord(coord);
@@ -102,29 +90,30 @@ impl Move {
             Move::Up | Move::Down => {
                 let (x, y) = (next.0 as usize, next.1 as usize);
                 if map[x][y] == '.' && map[x][y + 1] == '.' {
-                    push_able = true;
+                    push_able = true
                 } else if map[x][y] == '#' || map[x][y + 1] == '#' {
                     push_able = false
                 } else {
                     match (map[x][y], map[x][y + 1]) {
                         ('[', ']') => {
-                            if self.can_push(next, map) {
+                            if self.try_push(next, map, possible_boxs) {
                                 push_able = true
                             }
                         }
                         (']', '[') => {
-                            if self.can_push(next, map) && self.can_push((next.0, next.1 + 1), map)
+                            if self.try_push(next, map, possible_boxs)
+                                && self.try_push((next.0, next.1 + 1), map, possible_boxs)
                             {
                                 push_able = true
                             }
                         }
                         ('.', '[') => {
-                            if self.can_push((next.0, next.1 + 1), map) {
+                            if self.try_push((next.0, next.1 + 1), map, possible_boxs) {
                                 push_able = true
                             }
                         }
                         (']', '.') => {
-                            if self.can_push(next, map) {
+                            if self.try_push(next, map, possible_boxs) {
                                 push_able = true
                             }
                         }
@@ -133,86 +122,24 @@ impl Move {
                 }
             }
             Move::Left | Move::Right => {
-                let possibe = if self == &Move::Left {
+                let possible = if self == &Move::Left {
                     next
                 } else {
                     self.next_coord(next)
                 };
-                match map[possibe.0 as usize][possibe.1 as usize] {
+                match map[possible.0 as usize][possible.1 as usize] {
                     '.' => push_able = true,
                     '@' => push_able = false,
                     '#' => push_able = false,
-                    '[' | ']' => push_able = self.can_push(possibe, map),
-                    _ => unreachable!("unknow char at {:?} for map", possibe),
+                    '[' | ']' => push_able = self.try_push(possible, map, possible_boxs),
+                    _ => unreachable!("unknow char at {:?} for map", possible),
                 }
             }
+        }
+        if push_able {
+            possible_boxs.push(coord);
         }
         push_able
-    }
-
-    fn push_box(&self, coord: Coord, map: &mut [Vec<char>]) {
-        let coord = find_box(coord, map);
-        let next = self.next_coord(coord);
-        match self {
-            Move::Up | Move::Down => {
-                let (x, y) = (next.0 as usize, next.1 as usize);
-                if map[x][y] == '.' && map[x][y + 1] == '.' {
-                    move_box(coord, next, map);
-                } else if map[x][y] == '#' || map[x][y + 1] == '#' {
-                    return;
-                } else {
-                    match (map[x][y], map[x][y + 1]) {
-                        ('[', ']') => {
-                            if self.can_push(next, map) {
-                                self.push_box(next, map);
-                                move_box(coord, next, map);
-                            }
-                        }
-                        (']', '[') => {
-                            if self.can_push(next, map) && self.can_push((next.0, next.1 + 1), map)
-                            {
-                                self.push_box(next, map);
-                                self.push_box((next.0, next.1 + 1), map);
-                                move_box(coord, next, map);
-                            }
-                        }
-                        ('.', '[') => {
-                            if self.can_push((next.0, next.1 + 1), map) {
-                                self.push_box((next.0, next.1 + 1), map);
-                                move_box(coord, next, map);
-                            }
-                        }
-                        (']', '.') => {
-                            if self.can_push(next, map) {
-                                self.push_box(next, map);
-                                move_box(coord, next, map);
-                            }
-                        }
-                        _ => (),
-                    }
-                }
-            }
-            Move::Left | Move::Right => {
-                let possibe = if self == &Move::Left {
-                    next
-                } else {
-                    self.next_coord(next)
-                };
-                match map[possibe.0 as usize][possibe.1 as usize] {
-                    '.' | '@' => {
-                        move_box(coord, next, map);
-                    }
-                    '#' => (),
-                    '[' | ']' => {
-                        if self.can_push(possibe, map) {
-                            self.push_box(possibe, map);
-                            move_box(coord, next, map);
-                        }
-                    }
-                    _ => unreachable!("unknow char at {:?} for map", possibe),
-                }
-            }
-        }
     }
 
     fn move_robot_expanded_map(&self, robot: Coord, map: &mut [Vec<char>]) -> Option<Coord> {
@@ -231,8 +158,19 @@ impl Move {
                 }
                 '#' => None,
                 '[' | ']' => {
-                    if self.can_push(self.next_coord(robot), map) {
-                        self.push_box(self.next_coord(robot), map);
+                    let mut boxs = vec![];
+                    if self.try_push(self.next_coord(robot), map, &mut boxs) {
+                        for &b in &boxs {
+                            let (x, y) = (b.0 as usize, b.1 as usize);
+                            map[x][y] = '.';
+                            map[x][y + 1] = '.';
+                        }
+                        for b in boxs {
+                            let b = self.next_coord(b);
+                            let (x, y) = (b.0 as usize, b.1 as usize);
+                            map[x][y] = '[';
+                            map[x][y + 1] = ']';
+                        }
                         map[nx][ny] = '@';
                         map[x][y] = '.';
                         Some((nx as isize, ny as isize))
@@ -255,15 +193,6 @@ fn find_box(coord: Coord, map: &[Vec<char>]) -> Coord {
     } else {
         unreachable!("{:?} is not a box", map[x][y]);
     }
-}
-
-fn move_box(old: Coord, new: Coord, map: &mut [Vec<char>]) {
-    let (x, y) = (old.0 as usize, old.1 as usize);
-    let (x1, y1) = (new.0 as usize, new.1 as usize);
-    map[x][y] = '.';
-    map[x][y + 1] = '.';
-    map[x1][y1] = '[';
-    map[x1][y1 + 1] = ']';
 }
 
 #[allow(dead_code)]
