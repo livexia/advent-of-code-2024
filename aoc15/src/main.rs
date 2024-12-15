@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::{self, Read};
 use std::time::Instant;
@@ -182,6 +183,45 @@ impl Move {
             }
         }
     }
+
+    fn try_push_as_robot(
+        &self,
+        coord: Coord,
+        map: &[Vec<char>],
+        possible_boxs: &mut Vec<Coord>,
+        visited: &mut HashSet<Coord>,
+    ) -> bool {
+        if visited.insert(coord) {
+            let (x, y) = coord;
+            let (bx, by) = (map.len(), map[0].len());
+            if x < 0 || y < 0 || x >= bx as isize || y >= by as isize {
+                false
+            } else {
+                let (nx, ny) = self.next_coord(coord);
+                let need_check = match map[coord.0 as usize][coord.1 as usize] {
+                    '@' => vec![(nx, ny)],
+                    '[' => vec![(nx, ny), (nx, ny + 1)],
+                    ']' => vec![(nx, ny - 1), (nx, ny)],
+                    '.' => return true,
+                    '#' => return false,
+                    _ => unreachable!(),
+                };
+                if need_check
+                    .into_iter()
+                    .all(|c| self.try_push_as_robot(c, map, possible_boxs, visited))
+                {
+                    if map[coord.0 as usize][coord.1 as usize] != '@' {
+                        possible_boxs.push(find_box(coord, map));
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+        } else {
+            true
+        }
+    }
 }
 
 fn find_box(coord: Coord, map: &[Vec<char>]) -> Coord {
@@ -277,10 +317,44 @@ fn part2(map: &[Vec<char>], moves: &[Move]) -> Result<usize> {
             robot = new_robot;
         }
     }
-    display_map(&map);
+    // display_map(&map);
 
     let result = sum_of_gps(&map);
     println!("part2: {result}");
+    println!("> Time elapsed is: {:?}", _start.elapsed());
+    Ok(result)
+}
+
+fn part2_box_as_robot(map: &[Vec<char>], moves: &[Move]) -> Result<usize> {
+    let _start = Instant::now();
+
+    let mut map = expand_map(map);
+    let mut robot = find_robot(&map);
+
+    // display_map(&map);
+    for m in moves {
+        let mut boxs = vec![];
+        if m.try_push_as_robot(robot, &map, &mut boxs, &mut HashSet::new()) {
+            for &b in &boxs {
+                let (x, y) = (b.0 as usize, b.1 as usize);
+                map[x][y] = '.';
+                map[x][y + 1] = '.';
+            }
+            for b in boxs {
+                let b = m.next_coord(b);
+                let (x, y) = (b.0 as usize, b.1 as usize);
+                map[x][y] = '[';
+                map[x][y + 1] = ']';
+            }
+            map[robot.0 as usize][robot.1 as usize] = '.';
+            robot = m.next_coord(robot);
+            map[robot.0 as usize][robot.1 as usize] = '@';
+        }
+    }
+    // display_map(&map);
+
+    let result = sum_of_gps(&map);
+    println!("part2 box as two robots: {result}");
     println!("> Time elapsed is: {:?}", _start.elapsed());
     Ok(result)
 }
@@ -292,6 +366,7 @@ fn main() -> Result<()> {
     let (map, moves) = parse_input(input)?;
     part1(&map, &moves)?;
     part2(&map, &moves)?;
+    part2_box_as_robot(&map, &moves)?;
     Ok(())
 }
 
@@ -310,6 +385,7 @@ fn example_input1() -> Result<()> {
     let (map, moves) = parse_input(input)?;
     assert_eq!(part1(&map, &moves)?, 2028);
     assert_eq!(part2(&map, &moves)?, 1751);
+    assert_eq!(part2_box_as_robot(&map, &moves)?, 1751);
     Ok(())
 }
 
@@ -326,6 +402,7 @@ fn example_input2() -> Result<()> {
 <vv<<^^<<^^";
     let (map, moves) = parse_input(input)?;
     assert_eq!(part2(&map, &moves)?, 618);
+    assert_eq!(part2_box_as_robot(&map, &moves)?, 618);
     Ok(())
 }
 
@@ -355,6 +432,7 @@ v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^";
     let (map, moves) = parse_input(input)?;
     assert_eq!(part1(&map, &moves)?, 10092);
     assert_eq!(part2(&map, &moves)?, 9021);
+    assert_eq!(part2_box_as_robot(&map, &moves)?, 9021);
     Ok(())
 }
 #[test]
@@ -363,5 +441,6 @@ fn real_input() -> Result<()> {
     let (map, moves) = parse_input(input)?;
     assert_eq!(part1(&map, &moves)?, 1538871);
     assert_eq!(part2(&map, &moves)?, 1543338);
+    assert_eq!(part2_box_as_robot(&map, &moves)?, 1543338);
     Ok(())
 }
