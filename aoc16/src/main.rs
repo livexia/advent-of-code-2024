@@ -1,5 +1,5 @@
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read};
 use std::time::Instant;
@@ -156,6 +156,8 @@ fn part1_dijkstra(map: &Map) -> Result<usize> {
     let reindeer = Reindeer::new(find_from_map(map, 'S').unwrap());
     let mut distance = HashMap::new();
     let mut queue = BinaryHeap::new();
+
+    distance.insert(reindeer, 0);
     queue.push(Reverse((0, reindeer)));
 
     while let Some(Reverse((s, r))) = queue.pop() {
@@ -190,6 +192,112 @@ fn part1_dijkstra(map: &Map) -> Result<usize> {
     Ok(result)
 }
 
+fn keep_min_dis_prev(
+    prev: &mut HashMap<Reindeer, (usize, HashSet<Reindeer>)>,
+    r: Reindeer,
+    p: Reindeer,
+    s: usize,
+) {
+    let e = prev.entry(r).or_insert((s, HashSet::new()));
+    match e.0.cmp(&s) {
+        std::cmp::Ordering::Less => unreachable!(),
+        std::cmp::Ordering::Equal => {
+            e.1.insert(p);
+        }
+        std::cmp::Ordering::Greater => {
+            *e = (s, HashSet::new());
+            e.1.insert(p);
+        }
+    }
+}
+
+fn get_all_paths(
+    prev: &mut HashMap<Reindeer, (usize, HashSet<Reindeer>)>,
+    target: Reindeer,
+) -> Vec<Vec<Reindeer>> {
+    if !prev.contains_key(&target) {
+        return vec![];
+    }
+    let mut queue = VecDeque::new();
+    queue.push_back(vec![target]);
+
+    let mut paths = vec![];
+    while let Some(p) = queue.pop_front() {
+        if let Some((_, nexts)) = prev.get(p.last().unwrap()) {
+            for n in nexts {
+                let mut tp = p.clone();
+                tp.push(*n);
+                queue.push_back(tp);
+            }
+        } else {
+            paths.push(p);
+        }
+    }
+    println!("{}", paths.len());
+    paths
+}
+
+fn part2_dijkstra(map: &Map) -> Result<usize> {
+    let _start = Instant::now();
+
+    let reindeer = Reindeer::new(find_from_map(map, 'S').unwrap());
+    let mut distance = HashMap::new();
+    let mut queue = BinaryHeap::new();
+    let mut prev: HashMap<Reindeer, _> = HashMap::new();
+
+    distance.insert(reindeer, 0);
+    queue.push(Reverse((0, reindeer)));
+
+    while let Some(Reverse((s, r))) = queue.pop() {
+        assert_ne!(s, usize::MAX);
+        if let Some(next) = r.next(map) {
+            let s = s + 1;
+            let d = distance.entry(next).or_insert(usize::MAX);
+            if s <= *d {
+                keep_min_dis_prev(&mut prev, next, r, s);
+                *d = s;
+                queue.push(Reverse((s, next)));
+            }
+        }
+        for next in r.rotate() {
+            let s = s + 1000;
+            let d = distance.entry(next).or_insert(usize::MAX);
+            if s <= *d {
+                keep_min_dis_prev(&mut prev, next, r, s);
+                *d = s;
+                queue.push(Reverse((s, next)));
+            }
+        }
+    }
+
+    let mut tiles: HashSet<Coord> = HashSet::new();
+
+    let min_score = distance
+        .iter()
+        .filter(|(k, _)| k.coord == find_from_map(map, 'E').unwrap())
+        .map(|(_, v)| *v)
+        .min()
+        .unwrap();
+
+    for (&target, _) in distance
+        .iter()
+        .filter(|(k, s)| k.coord == find_from_map(map, 'E').unwrap() && s == &&min_score)
+    {
+        tiles.extend(
+            get_all_paths(&mut prev, target)
+                .iter()
+                .flatten()
+                .map(|r| r.coord),
+        );
+    }
+
+    let result = tiles.len();
+
+    println!("part2: {result}");
+    println!("> Time elapsed is: {:?}", _start.elapsed());
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -198,6 +306,7 @@ fn main() -> Result<()> {
     // origin method way too slow
     // part1(&map)?;
     part1_dijkstra(&map)?;
+    part2_dijkstra(&map)?;
     // part2()?;
     Ok(())
 }
@@ -222,6 +331,7 @@ fn example_input0() -> Result<()> {
     let map = parse_input(input)?;
     assert_eq!(part1(&map)?, 7036);
     assert_eq!(part1_dijkstra(&map)?, 7036);
+    assert_eq!(part2_dijkstra(&map)?, 45);
     assert_eq!(1, 1);
     Ok(())
 }
@@ -247,6 +357,7 @@ fn example_input1() -> Result<()> {
 #################";
     let map = parse_input(input)?;
     assert_eq!(part1_dijkstra(&map)?, 11048);
+    assert_eq!(part2_dijkstra(&map)?, 64);
     assert_eq!(1, 1);
     Ok(())
 }
@@ -256,5 +367,6 @@ fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let map = parse_input(input)?;
     assert_eq!(part1_dijkstra(&map)?, 72400);
+    assert_eq!(part2_dijkstra(&map)?, 435);
     Ok(())
 }
