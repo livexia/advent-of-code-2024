@@ -150,6 +150,27 @@ fn part1(map: &Map) -> Result<usize> {
     Ok(result)
 }
 
+fn four_reindeer_at(coord: Coord) -> [Reindeer; 4] {
+    [
+        Reindeer {
+            coord,
+            facing: Direction::North,
+        },
+        Reindeer {
+            coord,
+            facing: Direction::South,
+        },
+        Reindeer {
+            coord,
+            facing: Direction::West,
+        },
+        Reindeer {
+            coord,
+            facing: Direction::East,
+        },
+    ]
+}
+
 fn part1_dijkstra(map: &Map) -> Result<usize> {
     let _start = Instant::now();
 
@@ -180,10 +201,9 @@ fn part1_dijkstra(map: &Map) -> Result<usize> {
         }
     }
 
-    let result = distance
+    let result = *four_reindeer_at(find_from_map(map, 'E').unwrap())
         .iter()
-        .filter(|(k, _)| k.coord == find_from_map(map, 'E').unwrap())
-        .map(|(_, v)| *v)
+        .filter_map(|r| distance.get(r))
         .min()
         .unwrap();
 
@@ -205,7 +225,8 @@ fn keep_min_dis_prev(
             e.1.insert(p);
         }
         std::cmp::Ordering::Greater => {
-            *e = (s, HashSet::new());
+            e.0 = s;
+            e.1.clear();
             e.1.insert(p);
         }
     }
@@ -233,7 +254,6 @@ fn get_all_paths(
             paths.push(p);
         }
     }
-    println!("{}", paths.len());
     paths
 }
 
@@ -272,16 +292,15 @@ fn part2_dijkstra(map: &Map) -> Result<usize> {
 
     let mut tiles: HashSet<Coord> = HashSet::new();
 
-    let min_score = distance
+    let min_score = *four_reindeer_at(find_from_map(map, 'E').unwrap())
         .iter()
-        .filter(|(k, _)| k.coord == find_from_map(map, 'E').unwrap())
-        .map(|(_, v)| *v)
+        .filter_map(|r| distance.get(r))
         .min()
         .unwrap();
 
-    for (&target, _) in distance
+    for &target in four_reindeer_at(find_from_map(map, 'E').unwrap())
         .iter()
-        .filter(|(k, s)| k.coord == find_from_map(map, 'E').unwrap() && s == &&min_score)
+        .filter(|r| distance.get(r) == Some(&min_score))
     {
         tiles.extend(
             get_all_paths(&mut prev, target)
