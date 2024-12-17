@@ -193,8 +193,8 @@ fn main() -> Result<()> {
 
     let computer = input.parse()?;
     part1(&computer)?;
-    part2_with_simplified_program(&computer)?;
     part2_with_sim(&computer)?;
+    part2_with_simplified_program(&computer)?;
     Ok(())
 }
 
