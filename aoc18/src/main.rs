@@ -27,8 +27,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<Vec<Coord>> {
         .collect()
 }
 
-fn shortest_path(bytes: &[Coord], count: usize, bound: Coord) -> Option<usize> {
-    let corrupted: HashSet<_> = bytes[..count].iter().collect();
+fn shortest_path(corrupted: &HashSet<Coord>, bound: Coord) -> Option<usize> {
     let start = (0, 0);
 
     let mut visited = HashSet::new();
@@ -56,7 +55,8 @@ fn shortest_path(bytes: &[Coord], count: usize, bound: Coord) -> Option<usize> {
 fn part1(bytes: &[Coord], count: usize, bound: Coord) -> Result<usize> {
     let _start = Instant::now();
 
-    let result = shortest_path(bytes, count, bound).unwrap();
+    let corrupted: HashSet<_> = bytes[..count].iter().cloned().collect();
+    let result = shortest_path(&corrupted, bound).unwrap();
 
     println!("part1: {result}");
     println!("> Time elapsed is: {:?}", _start.elapsed());
@@ -84,31 +84,70 @@ fn reachable(
     false
 }
 
-fn part2(bytes: &[Coord], count: usize, bound: Coord) -> Result<Coord> {
+fn part2_bfs(bytes: &[Coord], count: usize, bound: Coord) -> Result<Coord> {
     let _start = Instant::now();
 
     let mut result = (0, 0);
-    for i in count + 1..=bytes.len() {
-        let corrupted: HashSet<_> = bytes[..i].iter().cloned().collect();
-        if !reachable((0, 0), &corrupted, bound, &mut HashSet::new()) {
-            // if shortest_path(bytes, i, bound).is_none() {
-            result = bytes[i - 1];
+    let mut corrupted: HashSet<_> = bytes.iter().cloned().collect();
+    for i in (count + 1..=bytes.len()).rev() {
+        if shortest_path(&corrupted, bound).is_some() {
+            result = bytes[i];
             break;
         }
+        corrupted.remove(&bytes[i - 1]);
     }
 
-    println!("part2: {result:?}");
+    println!("part2 with bfs: {result:?}");
     println!("> Time elapsed is: {:?}", _start.elapsed());
     Ok(result)
 }
 
+fn part2_dfs(bytes: &[Coord], count: usize, bound: Coord) -> Result<Coord> {
+    let _start = Instant::now();
+
+    let mut result = (0, 0);
+    let mut corrupted: HashSet<_> = bytes.iter().cloned().collect();
+    for i in (count + 1..=bytes.len()).rev() {
+        if reachable((0, 0), &corrupted, bound, &mut HashSet::new()) {
+            result = bytes[i];
+            break;
+        }
+        corrupted.remove(&bytes[i - 1]);
+    }
+
+    println!("part2 with dfs: {result:?}");
+    println!("> Time elapsed is: {:?}", _start.elapsed());
+    Ok(result)
+}
+
+fn part2_dfs_binary_search(bytes: &[Coord], count: usize, bound: Coord) -> Result<Coord> {
+    let _start = Instant::now();
+
+    let (mut l, mut r) = (count, bytes.len());
+    while r > l {
+        let mid = (l + r) / 2;
+        let corrupted: HashSet<_> = bytes[..mid].iter().cloned().collect();
+        if reachable((0, 0), &corrupted, bound, &mut HashSet::new()) {
+            l = mid + 1
+        } else {
+            r = mid
+        }
+    }
+    let result = bytes[l - 1];
+
+    println!("part2 with dfs: {result:?}");
+    println!("> Time elapsed is: {:?}", _start.elapsed());
+    Ok(result)
+}
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
     let bytes = parse_input(input)?;
     part1(&bytes, 1024, (70, 70))?;
-    part2(&bytes, 1024, (70, 70))?;
+    part2_dfs(&bytes, 1024, (70, 70))?;
+    part2_bfs(&bytes, 1024, (70, 70))?;
+    part2_dfs_binary_search(&bytes, 1024, (70, 70))?;
     Ok(())
 }
 
@@ -141,7 +180,8 @@ fn example_input() -> Result<()> {
 2,0";
     let bytes = parse_input(input)?;
     assert_eq!(part1(&bytes, 12, (6, 6))?, 22);
-    assert_eq!(part2(&bytes, 12, (6, 6))?, (6, 1));
+    assert_eq!(part2_dfs(&bytes, 12, (6, 6))?, (6, 1));
+    assert_eq!(part2_bfs(&bytes, 12, (6, 6))?, (6, 1));
     assert_eq!(1, 1);
     Ok(())
 }
@@ -151,7 +191,8 @@ fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let bytes = parse_input(input)?;
     assert_eq!(part1(&bytes, 1024, (70, 70))?, 294);
-    assert_eq!(part2(&bytes, 1024, (70, 70))?, (31, 32));
+    assert_eq!(part2_dfs(&bytes, 1024, (70, 70))?, (31, 22));
+    assert_eq!(part2_bfs(&bytes, 1024, (70, 70))?, (31, 22));
     assert_eq!(2, 2);
     Ok(())
 }
