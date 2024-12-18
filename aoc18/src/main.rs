@@ -182,6 +182,7 @@ fn example_input() -> Result<()> {
     assert_eq!(part1(&bytes, 12, (6, 6))?, 22);
     assert_eq!(part2_dfs(&bytes, 12, (6, 6))?, (6, 1));
     assert_eq!(part2_bfs(&bytes, 12, (6, 6))?, (6, 1));
+    assert_eq!(part2_dfs_binary_search(&bytes, 12, (6, 6))?, (6, 1));
     assert_eq!(1, 1);
     Ok(())
 }
@@ -193,6 +194,7 @@ fn real_input() -> Result<()> {
     assert_eq!(part1(&bytes, 1024, (70, 70))?, 294);
     assert_eq!(part2_dfs(&bytes, 1024, (70, 70))?, (31, 22));
     assert_eq!(part2_bfs(&bytes, 1024, (70, 70))?, (31, 22));
+    assert_eq!(part2_dfs_binary_search(&bytes, 1024, (70, 70))?, (31, 22));
     assert_eq!(2, 2);
     Ok(())
 }
