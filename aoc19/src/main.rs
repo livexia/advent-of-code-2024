@@ -10,8 +10,7 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-type Towel = Vec<u8>;
-fn parse_input<T: AsRef<str>>(input: T) -> Result<(Vec<Towel>, Vec<Towel>)> {
+fn parse_input<T: AsRef<str>>(input: T) -> Result<(Vec<String>, Vec<String>)> {
     let mut patterns = vec![];
     let mut designs = vec![];
     for (i, l) in input.as_ref().trim().lines().enumerate() {
@@ -19,36 +18,23 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<(Vec<Towel>, Vec<Towel>)> {
             continue;
         }
         if i == 0 {
-            patterns = l
-                .trim()
-                .split(", ")
-                .map(|p| p.trim().bytes().collect())
-                .collect();
+            patterns = l.trim().split(", ").map(|p| p.trim().to_string()).collect();
         } else {
-            designs.push(l.trim().bytes().collect());
+            designs.push(l.trim().to_string());
         }
     }
     Ok((patterns, designs))
 }
 
-fn is_possible(patterns: &[Towel], design: &Towel) -> bool {
-    if design.is_empty() || patterns.contains(design) {
-        true
-    } else {
-        for pattern in patterns {
-            let l = pattern.len();
-            if design.len() > l
-                && pattern == &design[..l]
-                && is_possible(patterns, &design[l..].to_vec())
-            {
-                return true;
-            }
-        }
-        false
-    }
+fn is_possible(patterns: &Vec<String>, design: &str) -> bool {
+    design.is_empty()
+        || patterns
+            .iter()
+            .filter(|&pat| design.starts_with(pat))
+            .any(|pat| is_possible(patterns, &design[pat.len()..]))
 }
 
-fn part1(patterns: &[Towel], designs: &[Towel]) -> Result<usize> {
+fn part1(patterns: &Vec<String>, designs: &[String]) -> Result<usize> {
     let _start = Instant::now();
 
     let result = designs
@@ -61,26 +47,28 @@ fn part1(patterns: &[Towel], designs: &[Towel]) -> Result<usize> {
     Ok(result)
 }
 
-fn possible_count(patterns: &[Towel], design: &Towel, cache: &mut HashMap<Towel, usize>) -> usize {
+fn possible_count(
+    patterns: &Vec<String>,
+    design: &str,
+    cache: &mut HashMap<String, usize>,
+) -> usize {
     if let Some(r) = cache.get(design) {
         return *r;
     }
     let mut r = 0;
-    if design.is_empty() || patterns.contains(design) {
+    if design.is_empty() {
         r += 1;
     }
-    for pattern in patterns {
-        let l = pattern.len();
-        if design.len() > l && pattern == &design[..l] {
-            let nr = possible_count(patterns, &design[l..].to_vec(), cache);
-            r += nr;
-        }
-    }
-    cache.insert(design.to_vec(), r);
+    r += patterns
+        .iter()
+        .filter(|&pat| design.starts_with(pat))
+        .map(|pat| possible_count(patterns, &design[pat.len()..], cache))
+        .sum::<usize>();
+    cache.insert(design.to_owned(), r);
     r
 }
 
-fn part2(patterns: &[Towel], designs: &[Towel]) -> Result<usize> {
+fn part2(patterns: &Vec<String>, designs: &[String]) -> Result<usize> {
     let _start = Instant::now();
 
     let mut cache = HashMap::new();
@@ -127,6 +115,8 @@ bbrgwb";
 #[test]
 fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    assert_eq!(2, 2);
+    let (pattterns, designs) = parse_input(input)?;
+    assert_eq!(part1(&pattterns, &designs)?, 236);
+    assert_eq!(part2(&pattterns, &designs)?, 643685981770598);
     Ok(())
 }
