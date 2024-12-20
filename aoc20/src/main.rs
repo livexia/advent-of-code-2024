@@ -1,4 +1,5 @@
-use std::collections::{HashMap, VecDeque};
+use rayon::prelude::*;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read};
 use std::time::Instant;
@@ -48,36 +49,31 @@ fn next_coord(x: usize, y: usize, dx: isize, dy: isize, map: &[Vec<char>]) -> Op
     Some(((x as isize + dx) as usize, (y as isize + dy) as usize))
 }
 
-fn find_all_cheats(
-    map: &[Vec<char>],
-    cheat_length: usize,
-) -> HashMap<Coord, HashMap<Coord, usize>> {
-    let mut cheats: HashMap<Coord, HashMap<Coord, usize>> = HashMap::new();
+// find cheats with pathfinding very inefficient
+#[allow(dead_code)]
+fn find_all_cheats(map: &[Vec<char>], cheat_length: usize) -> HashMap<Coord, HashSet<Coord>> {
+    let mut cheats: HashMap<Coord, HashSet<Coord>> = HashMap::new();
     for (i, row) in map.iter().enumerate() {
         for (j, &c) in row.iter().enumerate() {
             if c != '#' {
                 let mut queue = VecDeque::new();
-                let mut dis = HashMap::new();
-                dis.insert((i, j), 0);
+                let mut visited = HashSet::new();
                 queue.push_back(((i, j), 0));
                 while let Some((cur, time)) = queue.pop_front() {
-                    if time < cheat_length {
+                    if visited.insert(cur) && time < cheat_length {
                         for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                             let (x, y) = cur;
                             if let Some((nx, ny)) = next_coord(x, y, dx, dy, map) {
-                                let t = dis.entry((nx, ny)).or_insert(usize::MAX);
-                                if *t > time + 1 {
-                                    *t = time + 1;
-                                    queue.push_back(((nx, ny), time + 1));
-                                }
+                                queue.push_back(((nx, ny), time + 1));
                             }
                         }
                     }
                 }
                 cheats.insert(
                     (i, j),
-                    dis.into_iter()
-                        .filter(|((x, y), _)| map[*x][*y] != '#')
+                    visited
+                        .into_iter()
+                        .filter(|(x, y)| map[*x][*y] != '#')
                         .collect(),
                 );
             }
@@ -87,47 +83,101 @@ fn find_all_cheats(
     cheats
 }
 
-fn shortest_path(start: Coord, map: &[Vec<char>]) -> HashMap<Coord, usize> {
-    let mut distance = HashMap::new();
-    let mut queue = VecDeque::new();
+fn p_space(cur: Coord, length: usize, map: &[Vec<char>]) -> Vec<Coord> {
+    let mut r = Vec::with_capacity(length * length);
 
-    distance.insert(start, 0);
-    queue.push_back((start, 0));
-    while let Some((cur, time)) = queue.pop_front() {
-        for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
-            let (x, y) = cur;
-            if let Some((nx, ny)) = next_coord(x, y, dx, dy, map) {
-                if map[nx][ny] != '#' {
-                    let t = distance.entry((nx, ny)).or_insert(usize::MAX);
-                    if time + 1 < *t {
-                        *t = time + 1;
-                        queue.push_back(((nx, ny), time + 1));
-                    }
+    let length = length as isize;
+    for dx in -length..=length {
+        for dy in -length..=length {
+            if let Some(next) = next_coord(cur.0, cur.1, dx, dy, map) {
+                if next.0.abs_diff(cur.0) + next.1.abs_diff(cur.1) > length as usize {
+                    continue;
+                }
+                if map[next.0][next.1] != '#' {
+                    r.push(next);
                 }
             }
         }
     }
+    r
+}
+
+fn shortest_path(start: Coord, map: &[Vec<char>]) -> Vec<Vec<usize>> {
+    let mut distance = vec![vec![usize::MAX; map[0].len()]; map.len()];
+
+    distance[start.0][start.1] = 0;
+    let mut cur = start;
+    let mut prev = start;
+    let mut time = 0;
+    // there is no branch on the racetrack
+    while map[cur.0][cur.1] != 'E' {
+        for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+            let (x, y) = cur;
+            if let Some(next) = next_coord(x, y, dx, dy, map) {
+                if map[next.0][next.1] != '#' && next != prev {
+                    prev = cur;
+                    cur = next;
+                    time += 1;
+                    distance[next.0][next.1] = time;
+                    break;
+                }
+            }
+        }
+    }
+
     distance
 }
 
 fn find_cheates_at_least_save(map: &[Vec<char>], least_save: usize, cheat_length: usize) -> usize {
     let (start, end) = find_start_end(map);
-    let cheats = find_all_cheats(map, cheat_length);
     let s_dis = shortest_path(start, map);
-    let e_dis = shortest_path(end, map);
-    let &origin = s_dis.get(&end).unwrap();
+    let origin = s_dis[end.0][end.1];
 
-    let mut result = 0;
-    for (s, ns) in cheats {
-        for (e, t) in ns {
-            let time = t + s_dis.get(&s).unwrap() + e_dis.get(&e).unwrap();
-            if origin >= least_save + time {
-                result += 1;
-            }
-        }
-    }
+    // let mut result = 0;
+    // for (i, row) in map.iter().enumerate() {
+    //     for (j, &c) in row.iter().enumerate() {
+    //         if c != '#' {
+    //             for next in p_space((i, j), cheat_length, map) {
+    //                 if origin
+    //                     >= least_save
+    //                         + i.abs_diff(next.0)
+    //                         + j.abs_diff(next.1)
+    //                         + s_dis[i][j]
+    //                         + origin
+    //                         - s_dis[next.0][next.1]
+    //                 {
+    //                     result += 1;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
-    result
+    // result
+
+    map.par_iter()
+        .enumerate()
+        .flat_map(|(i, row)| {
+            row.par_iter()
+                .enumerate()
+                .filter(|&(_, c)| *c != '#')
+                .map(move |(j, _)| (i, j))
+                .map(|(i, j)| {
+                    p_space((i, j), cheat_length, map)
+                        .par_iter()
+                        .filter(|next| {
+                            origin
+                                >= least_save
+                                    + i.abs_diff(next.0)
+                                    + j.abs_diff(next.1)
+                                    + s_dis[i][j]
+                                    + origin
+                                    - s_dis[next.0][next.1]
+                        })
+                        .count()
+                })
+        })
+        .sum()
 }
 
 fn part1(map: &[Vec<char>], least_save: usize) -> Result<usize> {
