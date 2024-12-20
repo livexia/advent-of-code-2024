@@ -58,11 +58,9 @@ fn find_all_cheats(
             if c != '#' {
                 let mut queue = VecDeque::new();
                 let mut dis = HashMap::new();
+                dis.insert((i, j), 0);
                 queue.push_back(((i, j), 0));
                 while let Some((cur, time)) = queue.pop_front() {
-                    if map[cur.0][cur.1] == '.' && time > 1 {
-                        continue;
-                    }
                     if time < cheat_length {
                         for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                             let (x, y) = cur;
@@ -79,7 +77,7 @@ fn find_all_cheats(
                 cheats.insert(
                     (i, j),
                     dis.into_iter()
-                        .filter(|&((x, y), _)| map[x][y] != '#')
+                        .filter(|((x, y), _)| map[*x][*y] != '#')
                         .collect(),
                 );
             }
@@ -117,9 +115,9 @@ fn find_cheates_at_least_save(map: &[Vec<char>], least_save: usize, cheat_length
     let cheats = find_all_cheats(map, cheat_length);
     let s_dis = shortest_path(start, map);
     let e_dis = shortest_path(end, map);
+    let &origin = s_dis.get(&end).unwrap();
 
     let mut result = 0;
-    let &origin = s_dis.get(&end).unwrap();
     for (s, ns) in cheats {
         for (e, t) in ns {
             let time = t + s_dis.get(&s).unwrap() + e_dis.get(&e).unwrap();
@@ -128,6 +126,7 @@ fn find_cheates_at_least_save(map: &[Vec<char>], least_save: usize, cheat_length
             }
         }
     }
+
     result
 }
 
@@ -186,12 +185,18 @@ fn example_input() -> Result<()> {
     assert_eq!(part2(&map, 74)?, 7);
     assert_eq!(part2(&map, 76)?, 3);
     assert_eq!(part2(&map, 72)?, 29);
+    assert_eq!(find_cheates_at_least_save(&map, 70, 20), 41);
+    assert_eq!(find_cheates_at_least_save(&map, 68, 20), 55);
+    assert_eq!(find_cheates_at_least_save(&map, 66, 20), 67);
+    assert_eq!(find_cheates_at_least_save(&map, 64, 20), 86);
     Ok(())
 }
 
 #[test]
 fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    assert_eq!(2, 2);
+    let map = parse_input(input)?;
+    assert_eq!(part1(&map, 100)?, 1499);
+    assert_eq!(part2(&map, 100)?, 1027164);
     Ok(())
 }
