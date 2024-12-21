@@ -1,7 +1,7 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read};
-use std::iter;
+use std::iter::repeat;
 use std::time::Instant;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -128,9 +128,9 @@ fn shortest_press(code: &[char], coords: Vec<(usize, usize)>) -> Option<usize> {
 }
 
 fn all_coords(d_count: usize, n_count: usize) -> Vec<(usize, usize)> {
-    iter::repeat(DIRECTIONAL_KAYPAD_A)
+    repeat(DIRECTIONAL_KAYPAD_A)
         .take(d_count)
-        .chain(iter::repeat(NUMERIC_KEYPAD_A).take(n_count))
+        .chain(repeat(NUMERIC_KEYPAD_A).take(n_count))
         .collect()
 }
 
@@ -150,16 +150,112 @@ fn part1(codes: &[Vec<char>]) -> Result<usize> {
     Ok(result)
 }
 
+fn dp_keypad(keypad: &[[char; 3]], empty_key: (usize, usize)) -> Vec<Vec<Vec<char>>> {
+    let (h, w) = (keypad.len(), keypad[0].len());
+    let (x, y) = empty_key;
+    let mut dp = vec![vec![vec![]; h * w]; h * w];
+    for i in 0..h {
+        for j in 0..w {
+            if keypad[i][j] == '*' {
+                continue;
+            }
+            for m in 0..h {
+                for n in 0..w {
+                    // if keypad[m][n] == '*' {
+                    //     continue;
+                    // }
+                    let up = (m < i) as usize * m.abs_diff(i);
+                    let down = (m > i) as usize * m.abs_diff(i);
+                    let right = (n > j) as usize * n.abs_diff(j);
+                    let left = (n < j) as usize * n.abs_diff(j);
+                    dp[i * 3 + j][m * 3 + n] = if (i.min(m)..=i.max(m)).contains(&x) && y == j {
+                        repeat('<')
+                            .take(left)
+                            .chain(repeat('>').take(right))
+                            .chain(repeat('^').take(up))
+                            .chain(repeat('v').take(down))
+                            .collect()
+                    } else {
+                        repeat('^')
+                            .take(up)
+                            .chain(repeat('v').take(down))
+                            .chain(repeat('<').take(left))
+                            .chain(repeat('>').take(right))
+                            .collect()
+                    }
+                }
+            }
+        }
+    }
+    dp
+}
+
+fn keymap(keypad: &[[char; 3]]) -> HashMap<char, usize> {
+    keypad
+        .iter()
+        .enumerate()
+        .flat_map(|(i, row)| row.iter().enumerate().map(move |(j, &c)| (c, i * 3 + j)))
+        .collect()
+}
+
+fn dfs_dp(
+    code: &[char],
+    deepth: usize,
+    max_deepth: usize,
+    numeric_keymap: &HashMap<char, usize>,
+    numeric_dp: &[Vec<Vec<char>>],
+    directional_keymap: &HashMap<char, usize>,
+    directional_dp: &[Vec<Vec<char>>],
+) -> usize {
+    if deepth == max_deepth {
+        return code.len();
+    }
+    let (keymap, dp) = if deepth == 0 {
+        (numeric_keymap, numeric_dp)
+    } else {
+        (directional_keymap, directional_dp)
+    };
+    let mut d = 0;
+    for (a, b) in repeat(&'A').take(1).chain(code.iter()).zip(code.iter()) {
+        let (&a, &b) = (keymap.get(a).unwrap(), keymap.get(b).unwrap());
+        let mut path = dp[a][b].clone();
+        path.push('A');
+        d += dfs_dp(
+            &path,
+            deepth + 1,
+            max_deepth,
+            numeric_keymap,
+            numeric_dp,
+            directional_keymap,
+            directional_dp,
+        );
+    }
+    d
+}
+
 fn part2(codes: &[Vec<char>]) -> Result<usize> {
     let _start = Instant::now();
 
-    let result: usize = codes
-        .par_iter()
-        .map(|code| {
-            let coords = all_coords(25, 1);
-            shortest_press(code, coords).unwrap() * complexity(code)
-        })
-        .sum();
+    let mut result = 0;
+
+    let numeric_keymap = keymap(&NUMERIC_KEYPAD);
+    let directional_keymap = keymap(&DIRECTIONAL_KAYPAD);
+    let numeric_dp = dp_keypad(&NUMERIC_KEYPAD, NUMERIC_KEYPAD_EMPTY);
+    let directional_dp = dp_keypad(&DIRECTIONAL_KAYPAD, DIRECTIONAL_KAYPAD_EMPTY);
+    for code in codes {
+        let r = dfs_dp(
+            code,
+            0,
+            3,
+            &numeric_keymap,
+            &numeric_dp,
+            &directional_keymap,
+            &directional_dp,
+        );
+        println!("{code:?}, {r}");
+        result += r * complexity(code);
+    }
+
     println!("part2: {result}");
     println!("> Time elapsed is: {:?}", _start.elapsed());
     Ok(result)
@@ -185,6 +281,7 @@ fn example_input() -> Result<()> {
 379A";
     let codes = parse_input(input)?;
     assert_eq!(part1(&codes)?, 126384);
+    assert_eq!(part2(&codes)?, 126384);
     Ok(())
 }
 
