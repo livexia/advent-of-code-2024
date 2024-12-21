@@ -23,14 +23,15 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<Vec<Vec<char>>> {
         .collect())
 }
 
+type Coord = (usize, usize);
 const NUMERIC_KEYPAD: [[char; 3]; 4] = [['7', '8', '9'], ['4', '5', '6'], ['1', '2', '3'], [
     '*', '0', 'A',
 ]];
-const NUMERIC_KEYPAD_A: (usize, usize) = (3, 2);
-const NUMERIC_KEYPAD_EMPTY: (usize, usize) = (3, 0);
+const NUMERIC_KEYPAD_A: Coord = (3, 2);
+const NUMERIC_KEYPAD_EMPTY: Coord = (3, 0);
 const DIRECTIONAL_KAYPAD: [[char; 3]; 2] = [['*', '^', 'A'], ['<', 'v', '>']];
-const DIRECTIONAL_KAYPAD_A: (usize, usize) = (0, 2);
-const DIRECTIONAL_KAYPAD_EMPTY: (usize, usize) = (0, 0);
+const DIRECTIONAL_KAYPAD_A: Coord = (0, 2);
+const DIRECTIONAL_KAYPAD_EMPTY: Coord = (0, 0);
 
 fn complexity(code: &[char]) -> usize {
     code.iter()
@@ -38,12 +39,7 @@ fn complexity(code: &[char]) -> usize {
         .fold(0, |s, &c| s * 10 + (c as u8 - b'0') as usize)
 }
 
-fn is_valid_move(
-    key: char,
-    coord: (usize, usize),
-    keypad: &[[char; 3]],
-    empty_key: (usize, usize),
-) -> bool {
+fn is_valid_move(key: char, coord: Coord, keypad: &[[char; 3]], empty_key: Coord) -> bool {
     let (dx, dy) = match key {
         '^' => (-1, 0),
         'v' => (1, 0),
@@ -60,7 +56,7 @@ fn is_valid_move(
         || (x + dx == empty_key.0 as isize && y + dy == empty_key.1 as isize))
 }
 
-fn press(key: char, coords: &mut [(usize, usize)]) -> Result<Option<char>> {
+fn press(key: char, coords: &mut [Coord]) -> Result<Option<char>> {
     // first robot: v<A move robot arm with v< and press A to send v to next robot
     // second robot: v move robot arm with v press nothing
     // third robor: there is nothing to do
@@ -95,7 +91,7 @@ fn press(key: char, coords: &mut [(usize, usize)]) -> Result<Option<char>> {
     Ok(None)
 }
 
-fn shortest_press(code: &[char], coords: Vec<(usize, usize)>) -> Option<usize> {
+fn shortest_press(code: &[char], coords: Vec<Coord>) -> Option<usize> {
     let mut queue = VecDeque::new();
     queue.push_back((coords, 0, 0));
     let mut visited = HashSet::new();
@@ -103,7 +99,6 @@ fn shortest_press(code: &[char], coords: Vec<(usize, usize)>) -> Option<usize> {
         if code_index == code.len() {
             return Some(length);
         }
-        // if visited.insert((coords.clone(), code_index)) {
         for key in ['^', 'v', '>', '<', 'A'] {
             let mut alt_coords = coords.clone();
             match press(key, &mut alt_coords) {
@@ -123,12 +118,11 @@ fn shortest_press(code: &[char], coords: Vec<(usize, usize)>) -> Option<usize> {
                 Err(_e) => continue,
             }
         }
-        // }
     }
     None
 }
 
-fn all_coords(d_count: usize, n_count: usize) -> Vec<(usize, usize)> {
+fn all_coords(d_count: usize, n_count: usize) -> Vec<Coord> {
     repeat(DIRECTIONAL_KAYPAD_A)
         .take(d_count)
         .chain(repeat(NUMERIC_KEYPAD_A).take(n_count))
@@ -151,6 +145,7 @@ fn part1(codes: &[Vec<char>]) -> Result<usize> {
     Ok(result)
 }
 
+#[allow(dead_code)]
 fn dp_keypad(keypad: &[[char; 3]]) -> Vec<Vec<(usize, usize, usize, usize)>> {
     // dp.0 => '^'
     // dp.1 => 'v'
@@ -176,20 +171,15 @@ fn dp_keypad(keypad: &[[char; 3]]) -> Vec<Vec<(usize, usize, usize, usize)>> {
     dp
 }
 
-fn keymap(keypad: &[[char; 3]]) -> HashMap<char, usize> {
+fn keymap(keypad: &[[char; 3]]) -> HashMap<char, Coord> {
     keypad
         .iter()
         .enumerate()
-        .flat_map(|(i, row)| row.iter().enumerate().map(move |(j, &c)| (c, i * 3 + j)))
+        .flat_map(|(i, row)| row.iter().enumerate().map(move |(j, &c)| (c, (i, j))))
         .collect()
 }
 
-fn test_path(
-    mut cur: (usize, usize),
-    path: &[char],
-    keypad: &[[char; 3]],
-    empty_key: (usize, usize),
-) -> bool {
+fn test_path(mut cur: Coord, path: &[char], keypad: &[[char; 3]], empty_key: Coord) -> bool {
     for &key in path {
         if is_valid_move(key, cur, keypad, empty_key) {
             let (x, y) = &mut cur;
@@ -211,19 +201,17 @@ fn dfs_dp(
     code: &[char],
     deepth: usize,
     max_deepth: usize,
-    numeric_keymap: &HashMap<char, usize>,
-    numeric_dp: &[Vec<(usize, usize, usize, usize)>],
-    directional_keymap: &HashMap<char, usize>,
-    directional_dp: &[Vec<(usize, usize, usize, usize)>],
-    cache: &mut HashMap<(usize, usize, usize), usize>,
+    numeric_keymap: &HashMap<char, Coord>,
+    directional_keymap: &HashMap<char, Coord>,
+    cache: &mut HashMap<(Coord, Coord, usize), usize>,
 ) -> usize {
     if deepth == max_deepth {
         return code.len();
     }
-    let (keymap, dp) = if deepth == 0 {
-        (numeric_keymap, numeric_dp)
+    let keymap = if deepth == 0 {
+        numeric_keymap
     } else {
-        (directional_keymap, directional_dp)
+        directional_keymap
     };
     let mut d = 0;
     for (a, b) in repeat(&'A').take(1).chain(code.iter()).zip(code.iter()) {
@@ -232,7 +220,12 @@ fn dfs_dp(
             d += r;
             continue;
         }
-        let dis = dp[a][b];
+        let dis = (
+            (b.0 < a.0) as usize * b.0.abs_diff(a.0),
+            (b.0 > a.0) as usize * b.0.abs_diff(a.0),
+            (b.1 > a.1) as usize * b.1.abs_diff(a.1),
+            (b.1 < a.1) as usize * b.1.abs_diff(a.1),
+        );
         let mut r = usize::MAX;
         for mut path in repeat('^')
             .take(dis.0)
@@ -241,15 +234,9 @@ fn dfs_dp(
             .chain(repeat('<').take(dis.3))
             .permutations(dis.0 + dis.1 + dis.2 + dis.3)
         {
-            if (deepth == 0
-                && !test_path((a / 3, a % 3), &path, &NUMERIC_KEYPAD, NUMERIC_KEYPAD_EMPTY))
+            if (deepth == 0 && !test_path(a, &path, &NUMERIC_KEYPAD, NUMERIC_KEYPAD_EMPTY))
                 || (deepth != 0
-                    && !test_path(
-                        (a / 3, a % 3),
-                        &path,
-                        &DIRECTIONAL_KAYPAD,
-                        DIRECTIONAL_KAYPAD_EMPTY,
-                    ))
+                    && !test_path(a, &path, &DIRECTIONAL_KAYPAD, DIRECTIONAL_KAYPAD_EMPTY))
             {
                 continue;
             }
@@ -259,9 +246,7 @@ fn dfs_dp(
                 deepth + 1,
                 max_deepth,
                 numeric_keymap,
-                numeric_dp,
                 directional_keymap,
-                directional_dp,
                 cache,
             ));
         }
@@ -278,8 +263,6 @@ fn part2(codes: &[Vec<char>]) -> Result<usize> {
 
     let numeric_keymap = keymap(&NUMERIC_KEYPAD);
     let directional_keymap = keymap(&DIRECTIONAL_KAYPAD);
-    let numeric_dp = dp_keypad(&NUMERIC_KEYPAD);
-    let directional_dp = dp_keypad(&DIRECTIONAL_KAYPAD);
     let mut cache = HashMap::new();
     for code in codes {
         let r = dfs_dp(
@@ -287,9 +270,7 @@ fn part2(codes: &[Vec<char>]) -> Result<usize> {
             0,
             26,
             &numeric_keymap,
-            &numeric_dp,
             &directional_keymap,
-            &directional_dp,
             &mut cache,
         );
         result += r * complexity(code);
