@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::error::Error;
 use std::io::{self, Read};
@@ -150,10 +151,13 @@ fn part1(codes: &[Vec<char>]) -> Result<usize> {
     Ok(result)
 }
 
-fn dp_keypad(keypad: &[[char; 3]], empty_key: (usize, usize)) -> Vec<Vec<Vec<char>>> {
+fn dp_keypad(keypad: &[[char; 3]]) -> Vec<Vec<(usize, usize, usize, usize)>> {
+    // dp.0 => '^'
+    // dp.1 => 'v'
+    // dp.2 => '>'
+    // dp.3 => '<'
     let (h, w) = (keypad.len(), keypad[0].len());
-    let (x, y) = empty_key;
-    let mut dp = vec![vec![vec![]; h * w]; h * w];
+    let mut dp = vec![vec![(0, 0, 0, 0); h * w]; h * w];
     for i in 0..h {
         for j in 0..w {
             if keypad[i][j] == '*' {
@@ -161,28 +165,10 @@ fn dp_keypad(keypad: &[[char; 3]], empty_key: (usize, usize)) -> Vec<Vec<Vec<cha
             }
             for m in 0..h {
                 for n in 0..w {
-                    // if keypad[m][n] == '*' {
-                    //     continue;
-                    // }
-                    let up = (m < i) as usize * m.abs_diff(i);
-                    let down = (m > i) as usize * m.abs_diff(i);
-                    let right = (n > j) as usize * n.abs_diff(j);
-                    let left = (n < j) as usize * n.abs_diff(j);
-                    dp[i * 3 + j][m * 3 + n] = if (i.min(m)..=i.max(m)).contains(&x) && y == j {
-                        repeat('<')
-                            .take(left)
-                            .chain(repeat('>').take(right))
-                            .chain(repeat('^').take(up))
-                            .chain(repeat('v').take(down))
-                            .collect()
-                    } else {
-                        repeat('^')
-                            .take(up)
-                            .chain(repeat('v').take(down))
-                            .chain(repeat('<').take(left))
-                            .chain(repeat('>').take(right))
-                            .collect()
-                    }
+                    dp[i * 3 + j][m * 3 + n].0 = (m < i) as usize * m.abs_diff(i);
+                    dp[i * 3 + j][m * 3 + n].1 = (m > i) as usize * m.abs_diff(i);
+                    dp[i * 3 + j][m * 3 + n].2 = (n > j) as usize * n.abs_diff(j);
+                    dp[i * 3 + j][m * 3 + n].3 = (n < j) as usize * n.abs_diff(j);
                 }
             }
         }
@@ -198,14 +184,38 @@ fn keymap(keypad: &[[char; 3]]) -> HashMap<char, usize> {
         .collect()
 }
 
+fn test_path(
+    mut cur: (usize, usize),
+    path: &[char],
+    keypad: &[[char; 3]],
+    empty_key: (usize, usize),
+) -> bool {
+    for &key in path {
+        if is_valid_move(key, cur, keypad, empty_key) {
+            let (x, y) = &mut cur;
+            match key {
+                '^' => *x -= 1,
+                'v' => *x += 1,
+                '>' => *y += 1,
+                '<' => *y -= 1,
+                _ => unreachable!(),
+            }
+        } else {
+            return false;
+        }
+    }
+    true
+}
+
 fn dfs_dp(
     code: &[char],
     deepth: usize,
     max_deepth: usize,
     numeric_keymap: &HashMap<char, usize>,
-    numeric_dp: &[Vec<Vec<char>>],
+    numeric_dp: &[Vec<(usize, usize, usize, usize)>],
     directional_keymap: &HashMap<char, usize>,
-    directional_dp: &[Vec<Vec<char>>],
+    directional_dp: &[Vec<(usize, usize, usize, usize)>],
+    cache: &mut HashMap<(usize, usize, usize), usize>,
 ) -> usize {
     if deepth == max_deepth {
         return code.len();
@@ -218,17 +228,45 @@ fn dfs_dp(
     let mut d = 0;
     for (a, b) in repeat(&'A').take(1).chain(code.iter()).zip(code.iter()) {
         let (&a, &b) = (keymap.get(a).unwrap(), keymap.get(b).unwrap());
-        let mut path = dp[a][b].clone();
-        path.push('A');
-        d += dfs_dp(
-            &path,
-            deepth + 1,
-            max_deepth,
-            numeric_keymap,
-            numeric_dp,
-            directional_keymap,
-            directional_dp,
-        );
+        if let Some(r) = cache.get(&(a, b, deepth)) {
+            d += r;
+            continue;
+        }
+        let dis = dp[a][b];
+        let mut r = usize::MAX;
+        for mut path in repeat('^')
+            .take(dis.0)
+            .chain(repeat('v').take(dis.1))
+            .chain(repeat('>').take(dis.2))
+            .chain(repeat('<').take(dis.3))
+            .permutations(dis.0 + dis.1 + dis.2 + dis.3)
+        {
+            if (deepth == 0
+                && !test_path((a / 3, a % 3), &path, &NUMERIC_KEYPAD, NUMERIC_KEYPAD_EMPTY))
+                || (deepth != 0
+                    && !test_path(
+                        (a / 3, a % 3),
+                        &path,
+                        &DIRECTIONAL_KAYPAD,
+                        DIRECTIONAL_KAYPAD_EMPTY,
+                    ))
+            {
+                continue;
+            }
+            path.push('A');
+            r = r.min(dfs_dp(
+                &path,
+                deepth + 1,
+                max_deepth,
+                numeric_keymap,
+                numeric_dp,
+                directional_keymap,
+                directional_dp,
+                cache,
+            ));
+        }
+        cache.insert((a, b, deepth), r);
+        d += r;
     }
     d
 }
@@ -240,19 +278,20 @@ fn part2(codes: &[Vec<char>]) -> Result<usize> {
 
     let numeric_keymap = keymap(&NUMERIC_KEYPAD);
     let directional_keymap = keymap(&DIRECTIONAL_KAYPAD);
-    let numeric_dp = dp_keypad(&NUMERIC_KEYPAD, NUMERIC_KEYPAD_EMPTY);
-    let directional_dp = dp_keypad(&DIRECTIONAL_KAYPAD, DIRECTIONAL_KAYPAD_EMPTY);
+    let numeric_dp = dp_keypad(&NUMERIC_KEYPAD);
+    let directional_dp = dp_keypad(&DIRECTIONAL_KAYPAD);
+    let mut cache = HashMap::new();
     for code in codes {
         let r = dfs_dp(
             code,
             0,
-            3,
+            26,
             &numeric_keymap,
             &numeric_dp,
             &directional_keymap,
             &directional_dp,
+            &mut cache,
         );
-        println!("{code:?}, {r}");
         result += r * complexity(code);
     }
 
@@ -281,7 +320,7 @@ fn example_input() -> Result<()> {
 379A";
     let codes = parse_input(input)?;
     assert_eq!(part1(&codes)?, 126384);
-    assert_eq!(part2(&codes)?, 126384);
+    assert_eq!(part2(&codes)?, 154115708116294);
     Ok(())
 }
 
@@ -290,7 +329,6 @@ fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
     let codes = parse_input(input)?;
     assert_eq!(part1(&codes)?, 219366);
-    assert_eq!(part2(&codes)?, 219366);
-    assert_eq!(2, 2);
+    assert_eq!(part2(&codes)?, 271631192020464);
     Ok(())
 }
