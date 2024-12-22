@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read};
 use std::time::Instant;
+use std::{isize, usize};
 
 use itertools::Itertools;
 
@@ -21,18 +22,15 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<Vec<isize>> {
         .collect())
 }
 
-fn mix(secret: isize, value: isize) -> isize {
-    secret ^ value
+#[allow(dead_code)]
+fn mix_prune(secret: isize, value: isize) -> isize {
+    (secret ^ value) % 16777216
 }
 
-fn prune(secret: isize) -> isize {
-    secret % 16777216
-}
-
-fn next_secret(secret: isize) -> isize {
-    let s1 = prune(mix(secret, secret * 64));
-    let s2 = prune(mix(s1, s1 / 32));
-    prune(mix(s2, s2 * 2048))
+fn next_secret(mut secret: isize) -> isize {
+    secret = (secret ^ (secret * 64)) % 16777216;
+    secret = (secret ^ (secret / 32)) % 16777216;
+    (secret ^ (secret * 2048)) % 16777216
 }
 
 fn part1(secrets: &[isize]) -> Result<isize> {
@@ -69,18 +67,28 @@ fn get_price_change(mut secret: isize) -> (Vec<i8>, Vec<i8>) {
 fn part2(secrets: &[isize]) -> Result<isize> {
     let _start = Instant::now();
 
-    let mut seq_price = HashMap::with_capacity(2000 * 10);
-    for (price, change) in secrets.iter().map(|&s| get_price_change(s)) {
-        let mut seen = HashSet::with_capacity(2000);
+    fn seq_to_num(seq: (i8, i8, i8, i8)) -> usize {
+        // seq is from -9 to 9 can map to 19
+        (seq.0 + 9) as usize * 19 * 19 * 19
+            + (seq.1 + 9) as usize * 19 * 19
+            + (seq.2 + 9) as usize * 19
+            + (seq.3 + 9) as usize
+    }
+
+    let mut seq_price = vec![0; 19usize.pow(4)];
+    let mut seen = vec![0; 19usize.pow(4)];
+
+    for (id, (price, change)) in secrets.iter().map(|&s| get_price_change(s)).enumerate() {
         for (i, (&s0, &s1, &s2, &s3)) in change.iter().tuple_windows().enumerate() {
-            let seq = (s0, s1, s2, s3);
-            if seen.insert(seq) {
-                *seq_price.entry(seq).or_default() += price[i + 3] as isize;
+            let seq = seq_to_num((s0, s1, s2, s3));
+            if seen[seq] != id + 1 {
+                seen[seq] = id + 1;
+                seq_price[seq] += price[i + 3] as isize;
             }
         }
     }
 
-    let &result = seq_price.values().max().unwrap();
+    let &result = seq_price.iter().max().unwrap();
 
     println!("part2: {result}");
     println!("> Time elapsed is: {:?}", _start.elapsed());
