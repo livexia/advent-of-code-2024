@@ -4,7 +4,6 @@ use std::io::{self, Read};
 use std::time::Instant;
 
 use itertools::Itertools;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 #[allow(unused_macros)]
 macro_rules! err {
@@ -70,29 +69,18 @@ fn get_price_change(mut secret: isize) -> (Vec<i8>, Vec<i8>) {
 fn part2(secrets: &[isize]) -> Result<isize> {
     let _start = Instant::now();
 
-    let prices_changes: Vec<_> = secrets.iter().map(|&s| get_price_change(s)).collect();
-
-    let mut sps = vec![];
-    for (price, change) in prices_changes {
-        let mut seq_price = HashMap::new();
+    let mut seq_price = HashMap::with_capacity(2000 * 10);
+    for (price, change) in secrets.iter().map(|&s| get_price_change(s)) {
+        let mut seen = HashSet::with_capacity(2000);
         for (i, (&s0, &s1, &s2, &s3)) in change.iter().tuple_windows().enumerate() {
             let seq = (s0, s1, s2, s3);
-            seq_price.entry(seq).or_insert(price[i + 3]);
+            if seen.insert(seq) {
+                *seq_price.entry(seq).or_default() += price[i + 3] as isize;
+            }
         }
-        sps.push(seq_price);
     }
 
-    let all_seqs: HashSet<_> = sps.iter().flat_map(|s| s.keys()).collect();
-
-    let result = all_seqs
-        .par_iter()
-        .map(|seq| {
-            sps.par_iter()
-                .map(|sp| *sp.get(seq).unwrap_or(&0) as isize)
-                .sum()
-        })
-        .max()
-        .unwrap();
+    let &result = seq_price.values().max().unwrap();
 
     println!("part2: {result}");
     println!("> Time elapsed is: {:?}", _start.elapsed());
@@ -134,7 +122,8 @@ fn example_input2() -> Result<()> {
 #[test]
 fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    assert_eq!(next_secret(123), 15887950);
-    assert_eq!(2, 2);
+    let secrets = parse_input(input)?;
+    assert_eq!(part1(&secrets)?, 15335183969);
+    assert_eq!(part2(&secrets)?, 1696);
     Ok(())
 }
