@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read, Write};
 use std::time::Instant;
-use std::usize;
 
 #[allow(unused_macros)]
 macro_rules! err {
