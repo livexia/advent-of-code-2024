@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::{self, Read};
 use std::time::Instant;
-use std::usize;
 
 use itertools::Itertools;
 
@@ -13,24 +12,22 @@ macro_rules! err {
 
 type Result<T> = ::std::result::Result<T, Box<dyn Error>>;
 
-type IdxName = HashMap<String, usize>;
-type IdxId = HashMap<usize, String>;
+type Idx = HashMap<usize, String>;
 type Network = HashMap<usize, HashSet<usize>>;
 
-fn try_insert_with_id(idx: &mut IdxName, id: &mut usize, item: &str) -> usize {
-    if let Some(id) = idx.get(item) {
-        *id
-    } else {
-        idx.insert(item.to_string(), *id);
-        *id += 1;
-        *id - 1
+fn parse_input<T: AsRef<str>>(input: T) -> Result<(Network, Idx)> {
+    fn try_insert_with_id(idx: &mut HashMap<String, usize>, id: &mut usize, item: &str) -> usize {
+        if let Some(id) = idx.get(item) {
+            *id
+        } else {
+            idx.insert(item.to_string(), *id);
+            *id += 1;
+            *id - 1
+        }
     }
-}
-
-fn parse_input<T: AsRef<str>>(input: T) -> Result<(Network, IdxName, IdxId)> {
     let mut network = Network::new();
-    let mut idx_name = IdxName::new();
-    let mut idx_id = IdxId::new();
+    let mut idx_name = HashMap::new();
+    let mut idx_id = Idx::new();
     let mut id = 0;
     for line in input.as_ref().trim().lines() {
         if let Some((l, r)) = line.trim().split_once("-") {
@@ -42,7 +39,7 @@ fn parse_input<T: AsRef<str>>(input: T) -> Result<(Network, IdxName, IdxId)> {
             network.entry(r_id).or_default().insert(l_id);
         }
     }
-    Ok((network, idx_name, idx_id))
+    Ok((network, idx_id))
 }
 
 fn three_inter_connected(id: usize, network: &Network) -> Vec<[usize; 3]> {
@@ -62,11 +59,11 @@ fn three_inter_connected(id: usize, network: &Network) -> Vec<[usize; 3]> {
     parties
 }
 
-fn start_with_t(party: &[usize], idx: &IdxId) -> bool {
+fn start_with_t(party: &[usize], idx: &Idx) -> bool {
     party.iter().any(|id| idx.get(id).unwrap().starts_with('t'))
 }
 
-fn part1(network: &Network, idx: &IdxId) -> Result<usize> {
+fn part1(network: &Network, idx: &Idx) -> Result<usize> {
     let _start = Instant::now();
 
     let mut historian = HashSet::new();
@@ -112,7 +109,7 @@ fn is_perfect(party: &HashSet<usize>, network: &Network) -> bool {
     true
 }
 
-fn part2(network: &Network, idx: &IdxId) -> Result<String> {
+fn part2(network: &Network, idx: &Idx) -> Result<String> {
     let _start = Instant::now();
 
     let mut lan_party = Vec::new();
@@ -140,9 +137,9 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    let (network, idx_name, idx_id) = parse_input(input)?;
-    part1(&network, &idx_id)?;
-    part2(&network, &idx_id)?;
+    let (network, idx) = parse_input(input)?;
+    part1(&network, &idx)?;
+    part2(&network, &idx)?;
     Ok(())
 }
 
@@ -182,20 +179,20 @@ tb-vc
 td-yn
 ";
 
-    let (network, idx_name, idx_id) = parse_input(input)?;
-    assert_eq!(part1(&network, &idx_id)?, 7);
-    assert_eq!(part2(&network, &idx_id)?, "co,de,ka,ta".to_string());
+    let (network, idx) = parse_input(input)?;
+    assert_eq!(part1(&network, &idx)?, 7);
+    assert_eq!(part2(&network, &idx)?, "co,de,ka,ta".to_string());
     Ok(())
 }
 
 #[test]
 fn real_input() -> Result<()> {
     let input = std::fs::read_to_string("input/input.txt").unwrap();
-    let (network, idx_name, idx_id) = parse_input(input)?;
-    assert_eq!(part1(&network, &idx_id)?, 1064);
+    let (network, idx) = parse_input(input)?;
+    assert_eq!(part1(&network, &idx)?, 1064);
     assert_eq!(
-        part2(&network, &idx_id)?,
-        "aq,cc,ea,gc,jo,od,pa,rg,rv,ub,ul,vr,yyaq,cc,ea,gc,jo,od,pa,rg,rv,ub,ul,vr,yy"
+        part2(&network, &idx)?,
+        "aq,cc,ea,gc,jo,od,pa,rg,rv,ub,ul,vr,yy"
     );
     assert_eq!(2, 2);
     Ok(())
