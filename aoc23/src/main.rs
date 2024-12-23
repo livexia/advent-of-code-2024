@@ -133,6 +133,57 @@ fn part2(network: &Network, idx: &Idx) -> Result<String> {
     Ok(result)
 }
 
+fn bron_kerbosch_algo(
+    clique: HashSet<usize>,
+    some_vertices: &mut HashSet<usize>,
+    none_vertices: &mut HashSet<usize>,
+    network: &Network,
+    maximal_cliques: &mut Vec<HashSet<usize>>,
+) {
+    if some_vertices.is_empty() && none_vertices.is_empty() {
+        // find a maximal clique
+        maximal_cliques.push(clique);
+        return;
+    }
+    while let Some(id) = some_vertices.iter().copied().next() {
+        // for id in some_vertices.iter().copied() {
+        let neighbor = network.get(&id).unwrap();
+        let mut p1: HashSet<_> = some_vertices.intersection(neighbor).copied().collect();
+        let mut x1: HashSet<_> = none_vertices.intersection(neighbor).copied().collect();
+        let mut clique = clique.clone();
+        clique.insert(id);
+        bron_kerbosch_algo(clique, &mut p1, &mut x1, network, maximal_cliques);
+        some_vertices.remove(&id);
+        none_vertices.insert(id);
+    }
+}
+
+fn part2_with_bron_kerbosch(network: &Network, idx: &Idx) -> Result<String> {
+    let _start = Instant::now();
+
+    let mut maximal_cliques = vec![];
+    bron_kerbosch_algo(
+        HashSet::new(),
+        &mut network.keys().copied().collect(),
+        &mut HashSet::new(),
+        network,
+        &mut maximal_cliques,
+    );
+
+    let mut party: Vec<_> = maximal_cliques
+        .iter()
+        .max_by_key(|c| c.len())
+        .unwrap()
+        .iter()
+        .map(|id| idx.get(id).unwrap().clone())
+        .collect();
+    party.sort();
+    let result = party.join(",");
+    println!("part2 with Bron–Kerbosch algorithm: {result}");
+    println!("> Time elapsed is: {:?}", _start.elapsed());
+    Ok(result)
+}
+
 fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
@@ -140,6 +191,7 @@ fn main() -> Result<()> {
     let (network, idx) = parse_input(input)?;
     part1(&network, &idx)?;
     part2(&network, &idx)?;
+    part2_with_bron_kerbosch(&network, &idx)?;
     Ok(())
 }
 
@@ -182,6 +234,10 @@ td-yn
     let (network, idx) = parse_input(input)?;
     assert_eq!(part1(&network, &idx)?, 7);
     assert_eq!(part2(&network, &idx)?, "co,de,ka,ta".to_string());
+    assert_eq!(
+        part2_with_bron_kerbosch(&network, &idx)?,
+        "co,de,ka,ta".to_string()
+    );
     Ok(())
 }
 
@@ -192,6 +248,10 @@ fn real_input() -> Result<()> {
     assert_eq!(part1(&network, &idx)?, 1064);
     assert_eq!(
         part2(&network, &idx)?,
+        "aq,cc,ea,gc,jo,od,pa,rg,rv,ub,ul,vr,yy"
+    );
+    assert_eq!(
+        part2_with_bron_kerbosch(&network, &idx)?,
         "aq,cc,ea,gc,jo,od,pa,rg,rv,ub,ul,vr,yy"
     );
     assert_eq!(2, 2);
