@@ -22,6 +22,7 @@ Cargo.lock
 
 # Advent of Code
 input.txt
+input/
 
 flamegraph.svg
 perf.data*
